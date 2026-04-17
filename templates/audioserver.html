@@ -134,6 +134,26 @@
 
 </div>
 
+<hr>
+
+<div data-role="fieldcontain">
+	<label for="as_internal"><TMPL_VAR "AUDIOSERVER.LABEL_INTERNAL"></label>
+	<input type="checkbox" id="as_internal" name="as_internal" data-role="flipswitch">
+</div>
+
+<div data-role="fieldcontain">
+	<label for="as_host"><TMPL_VAR "AUDIOSERVER.LABEL_HOST"></label>
+	<input type="text" id="as_host" name="as_host" value="">
+</div>
+
+<div data-role="fieldcontain">
+	<label for="as_port"><TMPL_VAR "AUDIOSERVER.LABEL_PORT"></label>
+	<input type="number" id="as_port" name="as_port" min="1" max="65535" value="">
+</div>
+
+<a href="#" onclick="as_save_settings(); return false;" class="ui-btn ui-btn-inline ui-mini ui-btn-icon-left ui-icon-check ui-corner-all"><TMPL_VAR "COMMON.BUTTON_SAVE"></a>
+<span id="as_savinghint" style="margin-left:10px;"></span>
+
 <br>
 <br>
 <br>

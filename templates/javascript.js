@@ -1,11 +1,17 @@
 <script>
 
 $(function() {
-	
+
 	if (document.getElementById("asservicestatus")) {
 		interval = window.setInterval(function(){ asservicestatus(); }, 5000);
+		asservicestatus();
 	}
-	asservicestatus();
+
+	if (document.getElementById("gwservicestatus")) {
+		interval = window.setInterval(function(){ gwservicestatus(); }, 5000);
+		gwservicestatus();
+	}
+
 	getconfig();
 
 });
@@ -108,6 +114,104 @@ function asservicestop() {
 	});
 }
 
+// GATEWAY SERVICE STATE
+
+function gwservicestatus(update) {
+
+	if (update) {
+		$("#gwservicestatus").attr("style", "background:#dfdfdf").html("<TMPL_VAR "COMMON.HINT_UPDATING">");
+		$("#gwservicestatusicon").html("<img src='./images/unknown_20.png'>");
+	}
+
+	$.ajax( {
+			url:  '<TMPL_VAR AJAX_URL>',
+			type: 'POST',
+			data: {
+				action: 'gwservicestatus'
+			}
+		} )
+	.fail(function( data ) {
+		console.log( "GW Servicestatus Fail", data );
+		$("#gwservicestatus").attr("style", "background:#dfdfdf; color:red").html("<TMPL_VAR "COMMON.HINT_FAILED">");
+		$("#gwservicestatusicon").html("<img src='./images/unknown_20.png'>");
+	})
+	.done(function( data ) {
+		console.log( "GW Servicestatus Success", data );
+		if (data.pid) {
+			$("#gwservicestatus").attr("style", "background:#6dac20; color:black").html("<span class='small'>PID: " + data.pid + "</span>");
+			$("#gwservicestatusicon").html("<img src='./images/check_20.png'>");
+		} else {
+			$("#gwservicestatus").attr("style", "background:#FF6339; color:black").html("<TMPL_VAR "COMMON.HINT_STOPPED">");
+			$("#gwservicestatusicon").html("<img src='./images/error_20.png'>");
+		}
+	})
+	.always(function( data ) {
+		console.log( "GW Servicestatus Finished", data );
+	});
+}
+
+// GATEWAY SERVICE RESTART
+
+function gwservicerestart() {
+
+	clearInterval(interval);
+	$("#gwservicestatus").attr("style", "color:blue").html("<TMPL_VAR "COMMON.HINT_EXECUTING">");
+	$("#gwservicestatusicon").html("<img src='./images/unknown_20.png'>");
+	$.ajax( {
+			url:  '<TMPL_VAR AJAX_URL>',
+			type: 'POST',
+			data: {
+				action: 'gwservicerestart'
+			}
+		} )
+	.fail(function( data ) {
+		console.log( "GW Servicerestart Fail", data );
+	})
+	.done(function( data ) {
+		console.log( "GW Servicerestart Success", data );
+		if (data == "0") {
+			gwservicestatus(1);
+		} else {
+			$("#gwservicestatus").attr("style", "background:#dfdfdf; color:red").html("<TMPL_VAR "COMMON.HINT_FAILED">");
+		}
+		interval = window.setInterval(function(){ gwservicestatus(); }, 5000);
+	})
+	.always(function( data ) {
+		console.log( "GW Servicerestart Finished", data );
+	});
+}
+
+// GATEWAY SERVICE STOP
+
+function gwservicestop() {
+
+	clearInterval(interval);
+	$("#gwservicestatus").attr("style", "color:blue").html("<TMPL_VAR "COMMON.HINT_EXECUTING">");
+	$("#gwservicestatusicon").html("<img src='./images/unknown_20.png'>");
+	$.ajax( {
+			url:  '<TMPL_VAR AJAX_URL>',
+			type: 'POST',
+			data: {
+				action: 'gwservicestop'
+			}
+		} )
+	.fail(function( data ) {
+		console.log( "GW Servicestop Fail", data );
+	})
+	.done(function( data ) {
+		console.log( "GW Servicestop Success", data );
+		if (data == "0") {
+			gwservicestatus(1);
+		} else {
+			$("#gwservicestatus").attr("style", "background:#dfdfdf; color:red").html("<TMPL_VAR "COMMON.HINT_FAILED">");
+		}
+		interval = window.setInterval(function(){ gwservicestatus(); }, 5000);
+	})
+	.always(function( data ) {
+		console.log( "GW Servicestop Finished", data );
+	});
+}
+
 // PLUGIN GET CONFIG
 
 function getconfig() {
@@ -126,10 +230,91 @@ function getconfig() {
 	.done(function( data ) {
 		console.log( "getconfig Success", data );
 		$("#main").css( 'visibility', 'visible' );
+		// Populate audioserver settings form if present
+		if (document.getElementById("as_host") && data.loxaudioserver) {
+			var as = data.loxaudioserver;
+			$("#as_host").val(as.host || "");
+			$("#as_port").val(as.port || "");
+			var checked = as.internal ? true : false;
+			$("#as_internal").prop("checked", checked);
+			try { $("#as_internal").flipswitch("refresh"); } catch(e) {}
+		}
+		// Populate gateway settings form if present
+		if (document.getElementById("gw_basetopic") && data.mqtt) {
+			$("#gw_basetopic").val(data.mqtt.basetopic || "");
+			$("#gw_polling").val(data.mqtt.polling || "");
+			$("#gw_polling_slow").val(data.mqtt.polling_slow || "");
+		}
 	})
 	.always(function( data ) {
 		console.log( "getconfig Finished" );
 	})
+
+}
+
+// AUDIOSERVER SAVE SETTINGS
+
+function as_save_settings() {
+
+	$("#as_savinghint").attr("style", "color:blue").html("<TMPL_VAR "COMMON.HINT_SAVING">");
+	$.ajax( {
+			url:  '<TMPL_VAR AJAX_URL>',
+			type: 'POST',
+			data: {
+				action:   'saveasettings',
+				internal: $("#as_internal").is(":checked") ? 1 : 0,
+				host:     $("#as_host").val(),
+				port:     $("#as_port").val()
+			}
+		} )
+	.fail(function( data ) {
+		console.log( "as_save_settings Fail", data );
+		$("#as_savinghint").attr("style", "color:red").html("<TMPL_VAR "COMMON.HINT_SAVING_FAILED">");
+	})
+	.done(function( data ) {
+		console.log( "as_save_settings Done", data );
+		if (data.error) {
+			$("#as_savinghint").attr("style", "color:red").html("<TMPL_VAR "COMMON.HINT_SAVING_FAILED">" + " " + data.error);
+		} else {
+			$("#as_savinghint").attr("style", "color:green").html("<TMPL_VAR "AUDIOSERVER.HINT_SAVING_SUCCESS">");
+		}
+	})
+	.always(function( data ) {
+		console.log( "as_save_settings Finished", data );
+	});
+
+}
+
+// GATEWAY SAVE SETTINGS
+
+function gw_save_settings() {
+
+	$("#gw_savinghint").attr("style", "color:blue").html("<TMPL_VAR "COMMON.HINT_SAVING">");
+	$.ajax( {
+			url:  '<TMPL_VAR AJAX_URL>',
+			type: 'POST',
+			data: {
+				action:       'savegwsettings',
+				basetopic:    $("#gw_basetopic").val(),
+				polling:      $("#gw_polling").val(),
+				polling_slow: $("#gw_polling_slow").val()
+			}
+		} )
+	.fail(function( data ) {
+		console.log( "gw_save_settings Fail", data );
+		$("#gw_savinghint").attr("style", "color:red").html("<TMPL_VAR "COMMON.HINT_SAVING_FAILED">");
+	})
+	.done(function( data ) {
+		console.log( "gw_save_settings Done", data );
+		if (data.error) {
+			$("#gw_savinghint").attr("style", "color:red").html("<TMPL_VAR "COMMON.HINT_SAVING_FAILED">" + " " + data.error);
+		} else {
+			$("#gw_savinghint").attr("style", "color:green").html("<TMPL_VAR "GATEWAY.HINT_SAVING_SUCCESS">");
+		}
+	})
+	.always(function( data ) {
+		console.log( "gw_save_settings Finished", data );
+	});
 
 }
 

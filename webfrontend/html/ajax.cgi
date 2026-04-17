@@ -35,6 +35,72 @@ if( $q->{action} eq "asservicestatus" ) {
 	$response = encode_json( \%response );
 }
 
+if( $q->{action} eq "gwservicerestart" ) {
+	system ("$lbpbindir/gw_watchdog.pl --action=restart --verbose=0 > /dev/null 2>&1 &");
+	my $resp = $?;
+	sleep(1);
+	my $status = LoxBerry::System::lock(lockfile => 'gw-watchdog', wait => 600);
+	$response = $resp;
+}
+
+if( $q->{action} eq "gwservicestop" ) {
+	system ("$lbpbindir/gw_watchdog.pl --action=stop --verbose=0 > /dev/null 2>&1");
+	$response = $?;
+}
+
+if( $q->{action} eq "gwservicestatus" ) {
+	my $id;
+	my $count = `pgrep -A -c -f "loxaudioserver_mqtt.pl"`;
+	chomp ($count);
+	if ($count >= "1") {
+		$id = `pgrep -A -f "loxaudioserver_mqtt.pl"`;
+		chomp ($id);
+	}
+	my %response = ( pid => $id );
+	chomp (%response);
+	$response = encode_json( \%response );
+}
+
+if( $q->{action} eq "saveasettings" ) {
+	require LoxBerry::JSON;
+	my $cfgfile = "$lbpconfigdir/plugin.json";
+	my $jsonobj = LoxBerry::JSON->new();
+	my $cfg = $jsonobj->open(filename => $cfgfile);
+	if ( !$cfg ) {
+		$error = "Could not open config file";
+	} else {
+		$cfg->{loxaudioserver}->{internal} = $q->{internal} ? JSON::true : JSON::false if defined $q->{internal};
+		$cfg->{loxaudioserver}->{host}     = $q->{host}          if defined $q->{host};
+		$cfg->{loxaudioserver}->{port}     = $q->{port}+0        if defined $q->{port};
+		eval { $jsonobj->write() };
+		if ( $@ ) {
+			$error = "Could not save settings: $@";
+		} else {
+			$response = encode_json( { ok => 1 } );
+		}
+	}
+}
+
+if( $q->{action} eq "savegwsettings" ) {
+	require LoxBerry::JSON;
+	my $cfgfile = "$lbpconfigdir/plugin.json";
+	my $jsonobj = LoxBerry::JSON->new();
+	my $cfg = $jsonobj->open(filename => $cfgfile);
+	if ( !$cfg ) {
+		$error = "Could not open config file";
+	} else {
+		$cfg->{mqtt}->{basetopic}    = $q->{basetopic}       if defined $q->{basetopic};
+		$cfg->{mqtt}->{polling}      = $q->{polling}+0       if defined $q->{polling};
+		$cfg->{mqtt}->{polling_slow} = $q->{polling_slow}+0  if defined $q->{polling_slow};
+		eval { $jsonobj->write() };
+		if ( $@ ) {
+			$error = "Could not save settings: $@";
+		} else {
+			$response = encode_json( { ok => 1 } );
+		}
+	}
+}
+
 if( $q->{action} eq "getconfig" ) {
 	require LoxBerry::JSON;
 	my $cfgfile = "$lbpconfigdir/plugin.json";
@@ -49,8 +115,12 @@ if( $q->{action} eq "getzones" ) {
 		local $/;
 		$response = <$fh>;
 		close $fh;
+		# Empty or missing SHM content: treat as offline
+		$response = '{}' if !$response || $response =~ /^\s*$/;
 	} else {
-		$error = "Zone data not available ($shm_file): $!";
+		# File doesn't exist (gateway never started or cleared on shutdown)
+		# Return empty JSON with 200; JS checks for data.zones to detect offline state
+		$response = '{}';
 	}
 }
 

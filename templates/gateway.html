@@ -118,6 +118,43 @@
 </style>
 
 
+<div class="servicestatus">
+	<div>
+		<TMPL_VAR "GATEWAY.LABEL_SERVICE">
+	</div>
+	<div id="gwservicestatusicon">
+		<img src="./images/unknown_20.png">
+	</div>
+	<div class="status" id="gwservicestatus">
+		<TMPL_VAR "COMMON.HINT_UNKNOWN">
+	</div>
+	<div>
+		<a href="#" onclick="gwservicerestart(); return false;" class="ui-btn ui-btn-inline ui-mini ui-btn-icon-left ui-icon-check ui-corner-all"><TMPL_VAR "COMMON.BUTTON_RESTART"></a>
+		<a href="#" onclick="gwservicestop(); return false;" class="ui-btn ui-btn-inline ui-mini ui-btn-icon-left ui-icon-delete ui-corner-all"><TMPL_VAR "COMMON.BUTTON_STOP"></a>
+	</div>
+
+</div>
+
+<hr>
+
+<div data-role="fieldcontain">
+	<label for="gw_basetopic"><TMPL_VAR "GATEWAY.LABEL_BASETOPIC"></label>
+	<input type="text" id="gw_basetopic" name="gw_basetopic" value="">
+</div>
+
+<div data-role="fieldcontain">
+	<label for="gw_polling"><TMPL_VAR "GATEWAY.LABEL_POLLING"></label>
+	<input type="number" id="gw_polling" name="gw_polling" min="1" value="">
+</div>
+
+<div data-role="fieldcontain">
+	<label for="gw_polling_slow"><TMPL_VAR "GATEWAY.LABEL_POLLING_SLOW"></label>
+	<input type="number" id="gw_polling_slow" name="gw_polling_slow" min="1" value="">
+</div>
+
+<a href="#" onclick="gw_save_settings(); return false;" class="ui-btn ui-btn-inline ui-mini ui-btn-icon-left ui-icon-check ui-corner-all"><TMPL_VAR "COMMON.BUTTON_SAVE"></a>
+<span id="gw_savinghint" style="margin-left:10px;"></span>
+
 <br>
 <br>
 <br>
