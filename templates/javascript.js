@@ -1,17 +1,19 @@
 <script>
 
 var as_internal = true;
+var as_interval = null;
+var gw_interval = null;
 
 function as_apply_ui_state(isInternal) {
 	as_internal = isInternal;
-	clearInterval(interval);
+	clearInterval(as_interval);
 	if (isInternal) {
-		interval = window.setInterval(function(){ asservicestatus(); }, 3000);
+		as_interval = window.setInterval(function(){ asservicestatus(); }, 3000);
 		$("#as_btn_restart, #as_btn_stop").removeClass("ui-disabled").removeAttr("disabled");
 		$("#as_version").prop("disabled", false);
 		try { $("#as_version").selectmenu("refresh"); } catch(e) {}
 	} else {
-		interval = window.setInterval(function(){ asservicestatus(); }, 10000);
+		as_interval = window.setInterval(function(){ asservicestatus(); }, 10000);
 		$("#as_btn_restart, #as_btn_stop").addClass("ui-disabled").attr("disabled", true);
 		$("#as_version").prop("disabled", true);
 		try { $("#as_version").selectmenu("refresh"); } catch(e) {}
@@ -22,7 +24,7 @@ function as_apply_ui_state(isInternal) {
 $(function() {
 
 	if (document.getElementById("asservicestatus")) {
-		interval = window.setInterval(function(){ asservicestatus(); }, 3000);
+		as_interval = window.setInterval(function(){ asservicestatus(); }, 3000);
 		asservicestatus();
 	}
 
@@ -31,7 +33,7 @@ $(function() {
 	}
 
 	if (document.getElementById("gwservicestatus")) {
-		interval = window.setInterval(function(){ gwservicestatus(); }, 5000);
+		gw_interval = window.setInterval(function(){ gwservicestatus(); }, 5000);
 		gwservicestatus();
 	}
 
@@ -84,13 +86,13 @@ function asservicestatus(update) {
 function asservicerestart() {
 
 	if (!as_internal) return false;
-	clearInterval(interval);
+	clearInterval(as_interval);
 	$("#asservicestatus").attr("style", "color:blue").html("<TMPL_VAR "COMMON.HINT_EXECUTING">");
 	$("#asservicestatusicon").html("<img src='./images/unknown_20.png'>");
-	$.ajax( { 
+	$.ajax( {
 			url:  '<TMPL_VAR AJAX_URL>',
 			type: 'POST',
-			data: { 
+			data: {
 				action: 'asservicerestart'
 			}
 		} )
@@ -104,7 +106,7 @@ function asservicerestart() {
 		} else {
 			$("#asservicestatus").attr("style", "background:#dfdfdf; color:red").html("<TMPL_VAR "COMMON.HINT_FAILED">");
 		}
-		interval = window.setInterval(function(){ asservicestatus(); }, 3000);
+		as_interval = window.setInterval(function(){ asservicestatus(); }, 3000);
 	})
 	.always(function( data ) {
 		console.log( "Servicerestart Finished", data );
@@ -116,13 +118,13 @@ function asservicerestart() {
 function asservicestop() {
 
 	if (!as_internal) return false;
-	clearInterval(interval);
+	clearInterval(as_interval);
 	$("#asservicestatus").attr("style", "color:blue").html("<TMPL_VAR "COMMON.HINT_EXECUTING">");
 	$("#asservicestatusicon").html("<img src='./images/unknown_20.png'>");
-	$.ajax( { 
+	$.ajax( {
 			url:  '<TMPL_VAR AJAX_URL>',
 			type: 'POST',
-			data: { 
+			data: {
 				action: 'asservicestop'
 			}
 		} )
@@ -136,7 +138,7 @@ function asservicestop() {
 		} else {
 			$("#asservicestatus").attr("style", "background:#dfdfdf; color:red").html("<TMPL_VAR "COMMON.HINT_FAILED">");
 		}
-		interval = window.setInterval(function(){ asservicestatus(); }, 3000);
+		as_interval = window.setInterval(function(){ asservicestatus(); }, 3000);
 	})
 	.always(function( data ) {
 		console.log( "Servicestop Finished", data );
@@ -183,7 +185,7 @@ function gwservicestatus(update) {
 
 function gwservicerestart() {
 
-	clearInterval(interval);
+	clearInterval(gw_interval);
 	$("#gwservicestatus").attr("style", "color:blue").html("<TMPL_VAR "COMMON.HINT_EXECUTING">");
 	$("#gwservicestatusicon").html("<img src='./images/unknown_20.png'>");
 	$.ajax( {
@@ -203,7 +205,7 @@ function gwservicerestart() {
 		} else {
 			$("#gwservicestatus").attr("style", "background:#dfdfdf; color:red").html("<TMPL_VAR "COMMON.HINT_FAILED">");
 		}
-		interval = window.setInterval(function(){ gwservicestatus(); }, 5000);
+		gw_interval = window.setInterval(function(){ gwservicestatus(); }, 5000);
 	})
 	.always(function( data ) {
 		console.log( "GW Servicerestart Finished", data );
@@ -214,7 +216,7 @@ function gwservicerestart() {
 
 function gwservicestop() {
 
-	clearInterval(interval);
+	clearInterval(gw_interval);
 	$("#gwservicestatus").attr("style", "color:blue").html("<TMPL_VAR "COMMON.HINT_EXECUTING">");
 	$("#gwservicestatusicon").html("<img src='./images/unknown_20.png'>");
 	$.ajax( {
@@ -234,7 +236,7 @@ function gwservicestop() {
 		} else {
 			$("#gwservicestatus").attr("style", "background:#dfdfdf; color:red").html("<TMPL_VAR "COMMON.HINT_FAILED">");
 		}
-		interval = window.setInterval(function(){ gwservicestatus(); }, 5000);
+		gw_interval = window.setInterval(function(){ gwservicestatus(); }, 5000);
 	})
 	.always(function( data ) {
 		console.log( "GW Servicestop Finished", data );
