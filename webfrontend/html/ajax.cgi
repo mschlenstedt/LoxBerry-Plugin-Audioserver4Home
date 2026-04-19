@@ -201,7 +201,7 @@ if( $q->{action} eq "getconfig" ) {
 
 if( $q->{action} eq "getzones" ) {
 	my $shm_file = '/dev/shm/audioserver4home.json';
-	if ( open(my $fh, '<:utf8', $shm_file) ) {
+	if ( open(my $fh, '<', $shm_file) ) {
 		local $/;
 		$response = <$fh>;
 		close $fh;

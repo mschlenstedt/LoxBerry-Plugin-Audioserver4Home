@@ -166,7 +166,7 @@ sub fetch_json {
         # not HTTP 401/403, so we don't need a special case here.
         return undef;
     }
-    my $data = eval { decode_json($resp->content) };
+    my $data = eval { JSON->new->utf8(0)->decode($resp->decoded_content) };
     if ($@) {
         LOGERR("JSON-Parse-Fehler bei $path: $@");
         return undef;
