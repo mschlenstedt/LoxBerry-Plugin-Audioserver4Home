@@ -64,16 +64,22 @@ LOGINF("MQTT Basetopic: $basetopic");
 # Miniserver-Credentials
 # Pass_RAW / Admin_RAW enthalten das Klartext-Passwort (nicht URL-kodiert).
 # Pass / Admin sind URL-kodiert und würden den Miniserver-Auth-Hash korrumpieren.
+# Miniserver 0 = keine Authentifizierung erforderlich.
 # ---------------------------------------------------------------------------
 my $ms_nr = ($cfg->{mqtt}{miniserver} // 1) + 0;
-my %ms    = LoxBerry::System::get_miniservers();
-unless ($ms{$ms_nr} && $ms{$ms_nr}{Admin_RAW} && $ms{$ms_nr}{Pass_RAW}) {
-    LOGCRIT("Miniserver #$ms_nr nicht konfiguriert oder fehlende Admin/Pass-Credentials");
-    exit 1;
+my ($lox_user, $lox_pass);
+if ($ms_nr == 0) {
+    LOGINF("Miniserver-Authentifizierung deaktiviert (Miniserver 0) – kein Login erforderlich");
+} else {
+    my %ms = LoxBerry::System::get_miniservers();
+    unless ($ms{$ms_nr} && $ms{$ms_nr}{Admin_RAW} && $ms{$ms_nr}{Pass_RAW}) {
+        LOGCRIT("Miniserver #$ms_nr nicht konfiguriert oder fehlende Admin/Pass-Credentials");
+        exit 1;
+    }
+    $lox_user = $ms{$ms_nr}{Admin_RAW};
+    $lox_pass = $ms{$ms_nr}{Pass_RAW};
+    LOGINF("Miniserver #$ms_nr ($ms{$ms_nr}{Name}) – Benutzer: $lox_user");
 }
-my $lox_user = $ms{$ms_nr}{Admin_RAW};
-my $lox_pass = $ms{$ms_nr}{Pass_RAW};
-LOGINF("Miniserver #$ms_nr ($ms{$ms_nr}{Name}) – Benutzer: $lox_user");
 
 # ---------------------------------------------------------------------------
 # MQTT-Verbindung mit LWT
@@ -127,6 +133,10 @@ my $base_url = "http://$host:$port";
 # Hilfsfunktionen
 # ---------------------------------------------------------------------------
 sub login {
+    unless (defined $lox_user && defined $lox_pass) {
+        LOGINF("Login übersprungen – Authentifizierung deaktiviert");
+        return 1;
+    }
     my $resp = $ua->post(
         "$base_url/admin/api/auth/login",
         Content_Type => 'application/json',
@@ -371,6 +381,11 @@ while (1) {
     }
 
     if ($data eq 'AUTH_REQUIRED') {
+        unless (defined $lox_user) {
+            LOGERR("Server verlangt Authentifizierung, obwohl sie deaktiviert ist – warte ${polling_interval}s");
+            sleep($polling_interval);
+            next;
+        }
         LOGINF("Session abgelaufen – Re-Login...");
         unless (login()) {
             LOGERR("Re-Login fehlgeschlagen – warte 30s");

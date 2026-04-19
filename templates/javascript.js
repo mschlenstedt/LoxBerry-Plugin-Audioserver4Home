@@ -347,15 +347,14 @@ function gw_load_miniservers() {
 		console.log("gw_load_miniservers Done", data);
 		var $sel = $("#gw_miniserver");
 		$sel.empty();
+		$sel.append($('<option>').val(0).text('<TMPL_VAR "GATEWAY.HINT_AUTH_DISABLED">'));
 		if (data.miniservers && data.miniservers.length > 0) {
 			$.each(data.miniservers, function(i, ms) {
 				$sel.append($('<option>').val(ms.nr).text('#' + ms.nr + ' \u2013 ' + ms.name));
 			});
-			if (data.current) {
-				$sel.val(data.current);
-			}
-		} else {
-			$sel.append($('<option>').val('').text('<TMPL_VAR "GATEWAY.HINT_NO_MINISERVERS">'));
+		}
+		if (data.current !== undefined) {
+			$sel.val(data.current);
 		}
 		try { $sel.selectmenu('refresh', true); } catch(e) {}
 	});
