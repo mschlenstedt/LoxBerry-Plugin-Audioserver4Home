@@ -95,6 +95,13 @@ exit (0);
 sub start
 {
 
+	my $cfgobj2 = LoxBerry::JSON->new();
+	my $cfg2 = $cfgobj2->open(filename => "$lbpconfigdir/plugin.json", readonly => 1);
+	if ($cfg2 && !$cfg2->{loxaudioserver}{internal}) {
+		LOGINF "Lox-Audioserver ist als extern konfiguriert – kein Start erforderlich.";
+		return(0);
+	}
+
 	# Start with:
 	if (-e  "$lbpconfigdir/as_stopped.cfg") {
 		unlink("$lbpconfigdir/as_stopped.cfg");
@@ -175,6 +182,13 @@ sub check
 {
 
 	LOGINF "Checking Status of Lox-Audioserver...";
+
+	my $cfgobj2 = LoxBerry::JSON->new();
+	my $cfg2 = $cfgobj2->open(filename => "$lbpconfigdir/plugin.json", readonly => 1);
+	if ($cfg2 && !$cfg2->{loxaudioserver}{internal}) {
+		LOGINF "Lox-Audioserver ist als extern konfiguriert – kein Check erforderlich.";
+		return(0);
+	}
 
 	if (-e  "$lbpconfigdir/as_stopped.cfg") {
 		LOGOK "Lox-Audioserver was stopped manually. Nothing to do.";
