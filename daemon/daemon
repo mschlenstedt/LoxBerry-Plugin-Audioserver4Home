@@ -8,5 +8,5 @@
 #fi
 
 # Start AS4H at Boot
-REPLACELBPBINDIR/as_watchdog.pl --action=check --verbose=1
-REPLACELBPBINDIR/gw_watchdog.pl --action=check --verbose=1
+su -s /bin/bash loxberry -c "REPLACELBPBINDIR/as_watchdog.pl --action=check --verbose=1"
+su -s /bin/bash loxberry -c "REPLACELBPBINDIR/gw_watchdog.pl --action=check --verbose=1"
