@@ -1,5 +1,7 @@
 <script>
 
+var as_internal = true;
+
 $(function() {
 
 	if (document.getElementById("asservicestatus")) {
@@ -64,6 +66,7 @@ function asservicestatus(update) {
 
 function asservicerestart() {
 
+	if (!as_internal) return false;
 	clearInterval(interval);
 	$("#asservicestatus").attr("style", "color:blue").html("<TMPL_VAR "COMMON.HINT_EXECUTING">");
 	$("#asservicestatusicon").html("<img src='./images/unknown_20.png'>");
@@ -95,6 +98,7 @@ function asservicerestart() {
 
 function asservicestop() {
 
+	if (!as_internal) return false;
 	clearInterval(interval);
 	$("#asservicestatus").attr("style", "color:blue").html("<TMPL_VAR "COMMON.HINT_EXECUTING">");
 	$("#asservicestatusicon").html("<img src='./images/unknown_20.png'>");
@@ -244,6 +248,7 @@ function getconfig() {
 			$("#as_host").val(as.host || "");
 			$("#as_port").val(as.port || "");
 			var checked = as.internal ? true : false;
+			as_internal = checked;
 			$("#as_internal").prop("checked", checked);
 			try { $("#as_internal").flipswitch("refresh"); } catch(e) {}
 			if (!checked) {

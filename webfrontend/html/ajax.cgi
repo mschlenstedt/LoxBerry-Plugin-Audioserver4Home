@@ -11,16 +11,30 @@ my $cgi = CGI->new;
 my $q = $cgi->Vars;
 
 if( $q->{action} eq "asservicerestart" ) {
-	system ("$lbpbindir/as_watchdog.pl --action=restart --verbose=0 > /dev/null 2>&1 &");
-	my $resp = $?;
-	sleep(1);
-	my $status = LoxBerry::System::lock(lockfile => 'as-watchdog', wait => 600);
-	$response = $resp;
+	require LoxBerry::JSON;
+	my $cfgobj = LoxBerry::JSON->new();
+	my $cfg = $cfgobj->open(filename => "$lbpconfigdir/plugin.json", readonly => 1);
+	if ($cfg && !$cfg->{loxaudioserver}{internal}) {
+		$response = "0";
+	} else {
+		system ("$lbpbindir/as_watchdog.pl --action=restart --verbose=0 > /dev/null 2>&1 &");
+		my $resp = $?;
+		sleep(1);
+		my $status = LoxBerry::System::lock(lockfile => 'as-watchdog', wait => 600);
+		$response = $resp;
+	}
 }
 
 if( $q->{action} eq "asservicestop" ) {
-	system ("$lbpbindir/as_watchdog.pl --action=stop --verbose=0 > /dev/null 2>&1");
-	$response = $?;
+	require LoxBerry::JSON;
+	my $cfgobj = LoxBerry::JSON->new();
+	my $cfg = $cfgobj->open(filename => "$lbpconfigdir/plugin.json", readonly => 1);
+	if ($cfg && !$cfg->{loxaudioserver}{internal}) {
+		$response = "0";
+	} else {
+		system ("$lbpbindir/as_watchdog.pl --action=stop --verbose=0 > /dev/null 2>&1");
+		$response = $?;
+	}
 }
 
 if( $q->{action} eq "asservicestatus" ) {
