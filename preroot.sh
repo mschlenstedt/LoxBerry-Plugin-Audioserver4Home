@@ -36,7 +36,7 @@ else
 fi
 
 # Stop services before chown (only on upgrade, scripts may not exist on first install)
-BINDIR="$ARGV5/system/plugins/$ARGV3/bin"
+BINDIR="$ARGV5/bin/plugins/$ARGV3"
 
 if [ -f "$BINDIR/gw_watchdog.pl" ]; then
 	echo "<INFO> Stopping MQTT Gateway..."
