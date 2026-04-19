@@ -45,6 +45,12 @@ $(function() {
 		gw_load_miniservers();
 	}
 
+	if (document.getElementById("as_internal")) {
+		$("#as_internal").on("change", function() {
+			as_apply_ui_state($(this).is(":checked"));
+		});
+	}
+
 	getconfig();
 
 });
