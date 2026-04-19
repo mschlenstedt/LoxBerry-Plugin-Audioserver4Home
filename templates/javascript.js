@@ -12,7 +12,7 @@ function as_apply_ui_state(isInternal) {
 		$("#as_btn_restart, #as_btn_stop").removeClass("ui-disabled").removeAttr("disabled");
 		try { $("#as_version").selectmenu("enable"); } catch(e) {}
 		$("#as_host").val("localhost");
-		$("#as_port").val("7092");
+		$("#as_port").val("7090");
 		try { $("#as_host").textinput("disable"); } catch(e) { $("#as_host").prop("disabled", true); }
 		try { $("#as_port").textinput("disable"); } catch(e) { $("#as_port").prop("disabled", true); }
 	} else {

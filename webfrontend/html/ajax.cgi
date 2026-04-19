@@ -145,7 +145,7 @@ if( $q->{action} eq "saveasettings" ) {
 		$cfg->{loxaudioserver}->{internal} = $q->{internal} ? JSON::true : JSON::false if defined $q->{internal};
 		if ( $q->{internal} ) {
 			$cfg->{loxaudioserver}->{host} = 'localhost';
-			$cfg->{loxaudioserver}->{port} = 7092;
+			$cfg->{loxaudioserver}->{port} = 7090;
 		} else {
 			$cfg->{loxaudioserver}->{host} = $q->{host} if defined $q->{host};
 			$cfg->{loxaudioserver}->{port} = $q->{port}+0 if defined $q->{port};
