@@ -140,8 +140,8 @@
 		<div class="status" id="asservicestatus"><TMPL_VAR "COMMON.HINT_UNKNOWN"></div>
 	</div>
 	<div class="servicestatus-btns">
-		<a href="#" onclick="asservicerestart(); return false;" class="ui-btn ui-btn-inline ui-mini ui-btn-icon-left ui-icon-check ui-corner-all"><TMPL_VAR "COMMON.BUTTON_RESTART"></a>
-		<a href="#" onclick="asservicestop(); return false;" class="ui-btn ui-btn-inline ui-mini ui-btn-icon-left ui-icon-delete ui-corner-all"><TMPL_VAR "COMMON.BUTTON_STOP"></a>
+		<a id="as_btn_restart" href="#" onclick="asservicerestart(); return false;" class="ui-btn ui-btn-inline ui-mini ui-btn-icon-left ui-icon-check ui-corner-all"><TMPL_VAR "COMMON.BUTTON_RESTART"></a>
+		<a id="as_btn_stop" href="#" onclick="asservicestop(); return false;" class="ui-btn ui-btn-inline ui-mini ui-btn-icon-left ui-icon-delete ui-corner-all"><TMPL_VAR "COMMON.BUTTON_STOP"></a>
 	</div>
 </div>
 
