@@ -27,26 +27,32 @@ if( $q->{action} eq "asservicestatus" ) {
 	require LoxBerry::JSON;
 	my $cfgobj = LoxBerry::JSON->new();
 	my $cfg = $cfgobj->open(filename => "$lbpconfigdir/plugin.json", readonly => 1);
-	my $internal = ($cfg && $cfg->{loxaudioserver}{internal}) ? 1 : 0;
-
-	if ($internal) {
-		my $id;
-		my $count = `sudo docker ps | grep -c Up.*lox-audioserver`;
-		if ($count >= "1") {
-			$id = `sudo docker ps | grep Up.*lox-audioserver | awk '{ print \$1 }'`;
-			chomp ($id);
-		}
-		my %resp = ( pid => $id );
-		$response = encode_json( \%resp );
+	if (!$cfg) {
+		$response = encode_json({});
 	} else {
-		my $host = $cfg->{loxaudioserver}{host} // 'localhost';
-		my $port = $cfg->{loxaudioserver}{port} // 7090;
-		my $code = `curl -sf --max-time 3 --connect-timeout 3 -o /dev/null -w "%{http_code}" 'http://$host:$port' 2>/dev/null`;
-		chomp($code);
-		if ($code && $code ne '000') {
-			$response = encode_json({ pid => 'Remote' });
+		my $internal = $cfg->{loxaudioserver}{internal} ? 1 : 0;
+		if ($internal) {
+			my $id;
+			my $count = `sudo docker ps | grep -c Up.*lox-audioserver`;
+			if ($count >= "1") {
+				$id = `sudo docker ps | grep Up.*lox-audioserver | awk '{ print \$1 }'`;
+				chomp ($id);
+			}
+			my %resp = ( pid => $id );
+			$response = encode_json( \%resp );
 		} else {
-			$response = encode_json({});
+			my $host = $cfg->{loxaudioserver}{host} // 'localhost';
+			my $port = $cfg->{loxaudioserver}{port} // 7090;
+			$host =~ s/[^a-zA-Z0-9.\-]//g;
+			$port =~ s/[^0-9]//g;
+			$port ||= 7090;
+			my $code = `curl -sf --max-time 3 --connect-timeout 3 -o /dev/null -w "%{http_code}" 'http://$host:$port' 2>/dev/null`;
+			chomp($code);
+			if ($code && $code ne '000') {
+				$response = encode_json({ pid => 'Remote' });
+			} else {
+				$response = encode_json({});
+			}
 		}
 	}
 }
