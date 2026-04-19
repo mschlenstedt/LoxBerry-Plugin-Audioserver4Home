@@ -35,6 +35,21 @@ else
 	echo "<OK> Seems that Docker is already installed. Do nothing."
 fi
 
+# Stop services before chown (only on upgrade, scripts may not exist on first install)
+BINDIR="$ARGV5/system/plugins/$ARGV3/bin"
+
+if [ -f "$BINDIR/gw_watchdog.pl" ]; then
+	echo "<INFO> Stopping MQTT Gateway..."
+	perl "$BINDIR/gw_watchdog.pl" --action=stop
+	echo "<OK> MQTT Gateway stopped."
+fi
+
+if [ -f "$BINDIR/as_watchdog.pl" ]; then
+	echo "<INFO> Stopping Lox-Audioserver..."
+	perl "$BINDIR/as_watchdog.pl" --action=stop
+	echo "<OK> Lox-Audioserver stopped."
+fi
+
 # Chown data folder
 echo "<INFO> Correcting Ownership of Data Folder..."
 chown -R loxberry:loxberry $ARGV5/data/plugins/$ARGV3/*
