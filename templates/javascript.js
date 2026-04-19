@@ -2,6 +2,23 @@
 
 var as_internal = true;
 
+function as_apply_ui_state(isInternal) {
+	as_internal = isInternal;
+	clearInterval(interval);
+	if (isInternal) {
+		interval = window.setInterval(function(){ asservicestatus(); }, 3000);
+		$("#as_btn_restart, #as_btn_stop").removeClass("ui-disabled").removeAttr("disabled");
+		$("#as_version").prop("disabled", false);
+		try { $("#as_version").selectmenu("refresh"); } catch(e) {}
+	} else {
+		interval = window.setInterval(function(){ asservicestatus(); }, 10000);
+		$("#as_btn_restart, #as_btn_stop").addClass("ui-disabled").attr("disabled", true);
+		$("#as_version").prop("disabled", true);
+		try { $("#as_version").selectmenu("refresh"); } catch(e) {}
+	}
+	try { $("#as_internal").flipswitch("refresh"); } catch(e) {}
+}
+
 $(function() {
 
 	if (document.getElementById("asservicestatus")) {
@@ -248,14 +265,8 @@ function getconfig() {
 			$("#as_host").val(as.host || "");
 			$("#as_port").val(as.port || "");
 			var checked = as.internal ? true : false;
-			as_internal = checked;
 			$("#as_internal").prop("checked", checked);
-			try { $("#as_internal").flipswitch("refresh"); } catch(e) {}
-			if (!checked) {
-				clearInterval(interval);
-				interval = window.setInterval(function(){ asservicestatus(); }, 10000);
-				$("#as_btn_restart, #as_btn_stop").addClass("ui-disabled").attr("disabled", true);
-			}
+			as_apply_ui_state(checked);
 		}
 		// Populate gateway settings form if present
 		if (document.getElementById("gw_basetopic") && data.mqtt) {
@@ -332,6 +343,7 @@ function as_save_settings() {
 			$("#as_savinghint").attr("style", "color:red").html("<TMPL_VAR "COMMON.HINT_SAVING_FAILED">" + " " + data.error);
 		} else {
 			$("#as_savinghint").attr("style", "color:green").html("<TMPL_VAR "AUDIOSERVER.HINT_SAVING_SUCCESS">");
+			as_apply_ui_state($("#as_internal").is(":checked"));
 		}
 	})
 	.always(function( data ) {
