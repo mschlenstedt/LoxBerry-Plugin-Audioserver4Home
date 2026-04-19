@@ -135,8 +135,8 @@ if( $q->{action} eq "saveasettings" ) {
 		if ( $@ ) {
 			$error = "Could not save settings: $@";
 		} else {
-			if ( defined $q->{internal} && $q->{internal} == 0 ) {
-				system("$lbpbindir/as_watchdog.pl --action=stop > /dev/null 2>&1 &");
+			if ( defined $q->{internal} && $q->{internal} eq '0' ) {
+				system("$lbpbindir/as_watchdog.pl --action=stop --verbose=0 > /dev/null 2>&1 &");
 			}
 			# Save version to docker-compose.yml if provided and valid
 			if ( defined $q->{version} && $q->{version} =~ /^[\w.\-]+$/ ) {
