@@ -22,14 +22,5 @@ ARGV5=$5 # Fifth argument is Base folder of LoxBerry
 
 pluginname=$3
 
-echo "<INFO> Testing Docker..."
-docker run hello-world
-if [ $? -ne 0 ]; then
-	echo "<FAIL> Docker failed. The Plugin will not work without."
-	exit 2
-else
-	echo "<OK> Docker Installation seems to be fine."
-fi
-
 # Exit with Status 0
 exit 0
