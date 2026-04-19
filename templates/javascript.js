@@ -10,13 +10,11 @@ function as_apply_ui_state(isInternal) {
 	if (isInternal) {
 		as_interval = window.setInterval(function(){ asservicestatus(); }, 3000);
 		$("#as_btn_restart, #as_btn_stop").removeClass("ui-disabled").removeAttr("disabled");
-		$("#as_version").prop("disabled", false);
-		try { $("#as_version").selectmenu("refresh"); } catch(e) {}
+		try { $("#as_version").selectmenu("enable"); } catch(e) {}
 	} else {
 		as_interval = window.setInterval(function(){ asservicestatus(); }, 10000);
 		$("#as_btn_restart, #as_btn_stop").addClass("ui-disabled").attr("disabled", true);
-		$("#as_version").prop("disabled", true);
-		try { $("#as_version").selectmenu("refresh"); } catch(e) {}
+		try { $("#as_version").selectmenu("disable"); } catch(e) {}
 	}
 	try { $("#as_internal").flipswitch("refresh"); } catch(e) {}
 }
@@ -346,6 +344,7 @@ function as_save_settings() {
 		} else {
 			$("#as_savinghint").attr("style", "color:green").html("<TMPL_VAR "AUDIOSERVER.HINT_SAVING_SUCCESS">");
 			as_apply_ui_state($("#as_internal").is(":checked"));
+			asservicestatus(true);
 		}
 	})
 	.always(function( data ) {
