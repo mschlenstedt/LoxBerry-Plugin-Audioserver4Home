@@ -143,8 +143,13 @@ if( $q->{action} eq "saveasettings" ) {
 		$error = "Could not open config file";
 	} else {
 		$cfg->{loxaudioserver}->{internal} = $q->{internal} ? JSON::true : JSON::false if defined $q->{internal};
-		$cfg->{loxaudioserver}->{host}     = $q->{host}          if defined $q->{host};
-		$cfg->{loxaudioserver}->{port}     = $q->{port}+0        if defined $q->{port};
+		if ( $q->{internal} ) {
+			$cfg->{loxaudioserver}->{host} = 'localhost';
+			$cfg->{loxaudioserver}->{port} = 7092;
+		} else {
+			$cfg->{loxaudioserver}->{host} = $q->{host} if defined $q->{host};
+			$cfg->{loxaudioserver}->{port} = $q->{port}+0 if defined $q->{port};
+		}
 		eval { $jsonobj->write() };
 		if ( $@ ) {
 			$error = "Could not save settings: $@";
