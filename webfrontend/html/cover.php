@@ -1,4 +1,6 @@
 <?php
+ini_set('display_errors', '0');
+error_reporting(0);
 // cover.php — Serve resized album cover for a given zone
 
 // ── GET parameters ────────────────────────────────────────────
@@ -89,6 +91,14 @@ if (!$img) {
 $src_w = imagesx($img);
 $src_h = imagesy($img);
 
+if ($src_w === 0 || $src_h === 0) {
+    imagedestroy($img);
+    $img = load_default_cover();
+    if (!$img) { http_response_code(404); exit; }
+    $src_w = imagesx($img);
+    $src_h = imagesy($img);
+}
+
 if ($req_w > 0 && $req_h > 0) {
     $dst_w = $req_w;
     $dst_h = $req_h;
@@ -121,4 +131,4 @@ if ($format === 'png') {
     header('Content-Type: image/jpeg');
     imagejpeg($resized, null, 90);
 }
-imagedestroy($resized);
+if ($resized) imagedestroy($resized);
