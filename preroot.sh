@@ -22,12 +22,6 @@ ARGV5=$5 # Fifth argument is Base folder of LoxBerry
 
 pluginname=$3
 
-# Install php-gd if missing
-if ! php -r "exit(extension_loaded('gd') ? 0 : 1);" 2>/dev/null; then
-	echo "<INFO> Installing php-gd..."
-	apt-get install -y php-gd 2>/dev/null && echo "<OK> php-gd installed." || echo "<WARNING> php-gd installation failed — cover.php will serve unresized images."
-fi
-
 # Install docker on next reboot
 which docker > /dev/null
 if [ $? -ne 0 ]; then
