@@ -22,6 +22,7 @@ if( $q->{action} eq "asservicerestart" ) {
 		sleep(1);
 		my $status = LoxBerry::System::lock(lockfile => 'as-watchdog', wait => 600);
 		$response = $resp;
+		_cleanup_old_images();
 	}
 }
 
@@ -34,6 +35,7 @@ if( $q->{action} eq "asservicestop" ) {
 	} else {
 		system ("$lbpbindir/as_watchdog.pl --action=stop --verbose=0 > /dev/null 2>&1");
 		$response = $?;
+		_cleanup_old_images();
 	}
 }
 
@@ -211,6 +213,20 @@ if( $q->{action} eq "getzones" ) {
 		# File doesn't exist (gateway never started or cleared on shutdown)
 		# Return empty JSON with 200; JS checks for data.zones to detect offline state
 		$response = '{}';
+	}
+}
+
+sub _cleanup_old_images {
+	my $compose = LoxBerry::System::read_file("$lbpconfigdir/docker-compose.yml") // '';
+	my ($current) = $compose =~ /image:\s*\S+:(\S+)/;
+	return unless $current;
+	my @images = `sudo docker image ls --format '{{.Repository}}:{{.Tag}}' 2>/dev/null`;
+	for my $img (@images) {
+		chomp $img;
+		next unless $img =~ /^ghcr\.io\/lox-audioserver\/lox-audioserver:/;
+		my ($tag) = $img =~ /:([^:]+)$/;
+		next if $tag eq $current;
+		system("sudo docker image rm \Q$img\E > /dev/null 2>&1 &");
 	}
 }
 

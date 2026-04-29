@@ -1,0 +1,43 @@
+#!/bin/bash
+
+COMMAND=$0
+PTEMPDIR=$1
+PSHNAME=$2
+PDIR=$3
+PVERSION=$4
+PTEMPPATH=$6
+
+PCONFIG=$LBPCONFIG/$PDIR
+PBIN=$LBPBIN/$PDIR
+
+echo "<INFO> Stopping Audioserver4Home MQTT Gateway..."
+pkill -f "loxaudioserver_mqtt.pl" > /dev/null 2>&1
+pkill -f "gw_watchdog.pl" > /dev/null 2>&1
+pkill -f "as_watchdog.pl" > /dev/null 2>&1
+
+echo "<INFO> Stopping Lox-Audioserver Docker container..."
+CONTAINER_NAME="lox-audioserver"
+IMAGE_REPO="ghcr.io/lox-audioserver/lox-audioserver"
+
+if docker container inspect "$CONTAINER_NAME" > /dev/null 2>&1; then
+    docker stop "$CONTAINER_NAME" > /dev/null 2>&1
+    docker rm "$CONTAINER_NAME" > /dev/null 2>&1
+    echo "<OK> Docker container $CONTAINER_NAME stopped and removed."
+else
+    echo "<INFO> Docker container $CONTAINER_NAME is not running."
+fi
+
+IMAGE=$(docker image ls --format "{{.Repository}}:{{.Tag}}" | grep "^${IMAGE_REPO}")
+if [ -n "$IMAGE" ]; then
+    echo "<INFO> Removing Docker image: $IMAGE"
+    docker image rm "$IMAGE" > /dev/null 2>&1
+    if [ $? -eq 0 ]; then
+        echo "<OK> Docker image $IMAGE removed."
+    else
+        echo "<WARN> Could not remove Docker image $IMAGE (still in use?)."
+    fi
+else
+    echo "<INFO> Docker image $IMAGE_REPO not found – skipping."
+fi
+
+exit 0

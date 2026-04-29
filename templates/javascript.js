@@ -48,6 +48,22 @@ $(function() {
 	if (document.getElementById("as_internal")) {
 		$("#as_internal").on("change", function() {
 			as_apply_ui_state($(this).is(":checked"));
+			as_save_settings();
+		});
+		$("#as_host, #as_port").on("blur", function() {
+			as_save_settings();
+		});
+		$("#as_version").on("change", function() {
+			as_save_settings();
+		});
+	}
+
+	if (document.getElementById("gw_basetopic")) {
+		$("#gw_basetopic, #gw_polling, #gw_polling_slow").on("blur", function() {
+			gw_save_settings();
+		});
+		$("#gw_miniserver").on("change", function() {
+			gw_save_settings();
 		});
 	}
 
@@ -113,6 +129,7 @@ function asservicerestart() {
 		console.log( "Servicerestart Success", data );
 		if (data == "0") {
 			asservicestatus(1);
+			$("#as_savinghint").html("");
 		} else {
 			$("#asservicestatus").attr("style", "background:#dfdfdf; color:red").html("<TMPL_VAR "COMMON.HINT_FAILED">");
 		}
@@ -212,6 +229,7 @@ function gwservicerestart() {
 		console.log( "GW Servicerestart Success", data );
 		if (data == "0") {
 			gwservicestatus(1);
+			$("#gw_savinghint").html("");
 		} else {
 			$("#gwservicestatus").attr("style", "background:#dfdfdf; color:red").html("<TMPL_VAR "COMMON.HINT_FAILED">");
 		}
@@ -318,10 +336,13 @@ function as_load_versions() {
 			$.each(data.tags, function(i, tag) {
 				$sel.append($('<option>').val(tag).text(tag));
 			});
-			if (data.current) {
-				$sel.val(data.current);
+		}
+		if (data.current) {
+			if ($sel.find('option[value="' + data.current + '"]').length === 0) {
+				$sel.prepend($('<option>').val(data.current).text(data.current));
 			}
-		} else {
+			$sel.val(data.current);
+		} else if ($sel.find('option').length === 0) {
 			$sel.append($('<option>').val('').text('<TMPL_VAR "AUDIOSERVER.HINT_VERSIONS_FAILED">'));
 		}
 		try { $sel.selectmenu('refresh', true); } catch(e) {}
@@ -354,7 +375,7 @@ function as_save_settings() {
 		if (data.error) {
 			$("#as_savinghint").attr("style", "color:red").html("<TMPL_VAR "COMMON.HINT_SAVING_FAILED">" + " " + data.error);
 		} else {
-			$("#as_savinghint").attr("style", "color:green").html("<TMPL_VAR "AUDIOSERVER.HINT_SAVING_SUCCESS">");
+			$("#as_savinghint").attr("style", "color:orange").html("Settings changed. Please restart service.");
 			as_apply_ui_state($("#as_internal").is(":checked"));
 			asservicestatus(true);
 		}
@@ -421,7 +442,7 @@ function gw_save_settings() {
 		if (data.error) {
 			$("#gw_savinghint").attr("style", "color:red").html("<TMPL_VAR "COMMON.HINT_SAVING_FAILED">" + " " + data.error);
 		} else {
-			$("#gw_savinghint").attr("style", "color:green").html("<TMPL_VAR "GATEWAY.HINT_SAVING_SUCCESS">");
+			$("#gw_savinghint").attr("style", "color:orange").html("Settings changed. Please restart service.");
 		}
 	})
 	.always(function( data ) {
