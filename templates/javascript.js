@@ -3,6 +3,12 @@
 var as_internal = true;
 var as_interval = null;
 var gw_interval = null;
+var _autosave_enabled = false;
+var _autosave_pending = 0;
+
+function _autosave_init_done() {
+	if (--_autosave_pending <= 0) _autosave_enabled = true;
+}
 
 function as_apply_ui_state(isInternal) {
 	as_internal = isInternal;
@@ -33,6 +39,7 @@ $(function() {
 	}
 
 	if (document.getElementById("as_version")) {
+		_autosave_pending++;
 		as_load_versions();
 	}
 
@@ -42,6 +49,7 @@ $(function() {
 	}
 
 	if (document.getElementById("gw_miniserver")) {
+		_autosave_pending++;
 		gw_load_miniservers();
 	}
 
@@ -67,6 +75,7 @@ $(function() {
 		});
 	}
 
+	_autosave_pending++;
 	getconfig();
 
 });
@@ -307,6 +316,7 @@ function getconfig() {
 	})
 	.always(function( data ) {
 		console.log( "getconfig Finished" );
+		_autosave_init_done();
 	})
 
 }
@@ -327,6 +337,7 @@ function as_load_versions() {
 			$('<option>').val('').text('<TMPL_VAR "AUDIOSERVER.HINT_VERSIONS_FAILED">')
 		);
 		try { $("#as_version").selectmenu('refresh', true); } catch(e) {}
+		_autosave_init_done();
 	})
 	.done(function(data) {
 		console.log("as_load_versions Done", data);
@@ -346,6 +357,7 @@ function as_load_versions() {
 			$sel.append($('<option>').val('').text('<TMPL_VAR "AUDIOSERVER.HINT_VERSIONS_FAILED">'));
 		}
 		try { $sel.selectmenu('refresh', true); } catch(e) {}
+		_autosave_init_done();
 	});
 
 }
@@ -354,6 +366,7 @@ function as_load_versions() {
 
 function as_save_settings() {
 
+	if (!_autosave_enabled) return;
 	$("#as_savinghint").attr("style", "color:blue").html("<TMPL_VAR "COMMON.HINT_SAVING">");
 	$.ajax( {
 			url:  '<TMPL_VAR AJAX_URL>',
@@ -398,6 +411,7 @@ function gw_load_miniservers() {
 	})
 	.fail(function() {
 		console.log("gw_load_miniservers Fail");
+		_autosave_init_done();
 	})
 	.done(function(data) {
 		console.log("gw_load_miniservers Done", data);
@@ -413,6 +427,7 @@ function gw_load_miniservers() {
 			$sel.val(data.current);
 		}
 		try { $sel.selectmenu('refresh', true); } catch(e) {}
+		_autosave_init_done();
 	});
 
 }
@@ -421,6 +436,7 @@ function gw_load_miniservers() {
 
 function gw_save_settings() {
 
+	if (!_autosave_enabled) return;
 	$("#gw_savinghint").attr("style", "color:blue").html("<TMPL_VAR "COMMON.HINT_SAVING">");
 	$.ajax( {
 			url:  '<TMPL_VAR AJAX_URL>',
