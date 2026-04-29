@@ -12,6 +12,7 @@ use LoxBerry::JSON;
 use LWP::UserAgent;
 use HTTP::Cookies;
 use JSON;
+use Encode qw(encode_utf8);
 
 # ---------------------------------------------------------------------------
 # Kommandozeilenargumente
@@ -218,7 +219,7 @@ sub publish_if_changed {
     my $old = defined $last_state{$topic} ? $last_state{$topic} : '<neu>';
     LOGDEB("Änderung: $topic  '$old' → '$value'");
 
-    my $result = LoxBerry::IO::mqtt_retain($topic, $value);
+    my $result = LoxBerry::IO::mqtt_retain($topic, encode_utf8($value));
     LOGWARN("MQTT publish fehlgeschlagen: $topic => $value") unless defined $result;
 
     $last_state{$topic} = $value;
@@ -253,6 +254,7 @@ my @TECH_FIELDS = qw(
     streamStats/profile streamStats/bps streamStats/bufferedBytes
     streamStats/totalBytes streamStats/subscribers streamStats/restarts
     streamStats/subscriberDrops streamStats/lastError
+    player/mac player/name player/connected
 );
 
 sub process_zones {
@@ -297,6 +299,11 @@ sub process_zones {
         publish_if_changed("$z/streamStats/restarts",        $ss->{restarts});
         publish_if_changed("$z/streamStats/subscriberDrops", $ss->{subscriberDrops});
         publish_if_changed("$z/streamStats/lastError",       $ss->{lastError});
+
+        my $player = $tech->{player} // {};
+        publish_if_changed("$z/player/mac",       $player->{mac});
+        publish_if_changed("$z/player/name",      $player->{name});
+        publish_if_changed("$z/player/connected", $player->{connected});
     }
 }
 
