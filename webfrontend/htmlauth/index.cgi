@@ -138,6 +138,39 @@ sub form_logs
 	return();
 }
 
+
+###################
+# Helper Section
+###################
+
+##########################################################################
+# Check if TTS Plugin is installed
+##########################################################################
+
+sub is_tts_plugin_installed
+{
+	my ($plugin_id) = @_;
+
+	return 0 if !$plugin_id;
+
+	my @plugins = LoxBerry::System::get_plugins();
+	return 0 if !@plugins;
+
+	foreach my $plugin (@plugins) {
+		next if !$plugin;
+
+		if (defined $plugin->{PLUGINDB_FOLDER} && $plugin->{PLUGINDB_FOLDER} eq $plugin_id) {
+			return 1;
+		}
+
+		if (defined $plugin->{PLUGINDB_NAME} && $plugin->{PLUGINDB_NAME} eq $plugin_id) {
+			return 1;
+		}
+	}
+
+	return 0;
+}
+
 ##########################################################################
 # Print Form
 ##########################################################################
@@ -159,7 +192,7 @@ sub preparetemplate
 	# Language File
 	%L = LoxBerry::System::readlanguage($templateout, "language.ini");
 
-	# ajax.cgi liegt im html-Verzeichnis (ohne Authentifizierung)
+	# ajax.cgi is located in the html directory without authentication
 	$templateout->param( AJAX_URL => "/plugins/$lbpplugindir/ajax.cgi" );
 
 	# Url for AS WebUI Url
@@ -188,6 +221,15 @@ sub preparetemplate
 	$navbar{60}{Name} = "$L{'COMMON.LABEL_AS_WEBUI'}";
 	$navbar{60}{URL} = "$asurl";
 	$navbar{60}{target} = '_blank';
+
+	# Show Text2Speech navigation entry only if the Text2Speech plugin is installed
+	if (&is_tts_plugin_installed("text2speech")) {
+		my $text2speech_label = $L{'COMMON.LABEL_TEXT2SPEECH'} || "Text2Speech";
+
+		$navbar{70}{Name} = "$text2speech_label";
+		$navbar{70}{URL} = "http://loxberry-dev/admin/plugins/text2speech/";
+		$navbar{70}{target} = "_blank";
+	}
 	
 	$navbar{98}{Name} = "$L{'COMMON.LABEL_LOGS'}";
 	$navbar{98}{URL} = 'index.cgi?form=logs';
