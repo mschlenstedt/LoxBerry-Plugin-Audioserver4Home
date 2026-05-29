@@ -25,16 +25,27 @@ pluginname=$3
 # Install the php-gd extension if it is missing. cover.php needs GD
 # (imagecreatefromstring/imagescale/imagepng/...). We do this here in its own
 # apt call - NOT bundled in dpkg/apt - so a missing/unavailable package can
-# never abort the whole install (e.g. Docker). We install the package matching
-# the running PHP version, fall back to the virtual php-gd, and only warn on
-# failure so cover.php degrades to unresized images instead of breaking install.
+# never abort the whole install (e.g. Docker).
+#
+# We ONLY install the package matching the PHP version that is actually running
+# (php${ver}-gd) with --no-install-recommends. We deliberately do NOT fall back
+# to the virtual "php-gd": on a system whose active PHP differs from the distro
+# default (e.g. LoxBerry running PHP 7.4 on Bookworm, whose default is 8.2),
+# "php-gd" would pull a different PHP major.minor and drag its whole package set
+# in - useless for cover.php and a risky side effect. If the matching package is
+# unavailable we just warn; cover.php has a no-GD path that serves unresized
+# images, so a missing extension never breaks the plugin install.
 if ! php -r "exit(extension_loaded('gd') ? 0 : 1);" 2>/dev/null; then
 	phpver=$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;' 2>/dev/null)
-	echo "<INFO> Installing php-gd for PHP ${phpver:-unknown}..."
-	if { [ -n "$phpver" ] && apt-get install -y "php${phpver}-gd" 2>/dev/null; } || apt-get install -y php-gd 2>/dev/null; then
-		echo "<OK> php-gd installed."
+	if [ -n "$phpver" ]; then
+		echo "<INFO> Installing php${phpver}-gd..."
+		if apt-get install -y --no-install-recommends "php${phpver}-gd" 2>/dev/null; then
+			echo "<OK> php${phpver}-gd installed."
+		else
+			echo "<WARNING> php${phpver}-gd not available - cover.php will serve unresized images."
+		fi
 	else
-		echo "<WARNING> php-gd installation failed - cover.php will serve unresized images."
+		echo "<WARNING> Could not determine PHP version - skipping php-gd; cover.php will serve unresized images."
 	fi
 fi
 
