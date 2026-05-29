@@ -22,6 +22,22 @@ ARGV5=$5 # Fifth argument is Base folder of LoxBerry
 
 pluginname=$3
 
+# Install the php-gd extension if it is missing. cover.php needs GD
+# (imagecreatefromstring/imagescale/imagepng/...). We do this here in its own
+# apt call - NOT bundled in dpkg/apt - so a missing/unavailable package can
+# never abort the whole install (e.g. Docker). We install the package matching
+# the running PHP version, fall back to the virtual php-gd, and only warn on
+# failure so cover.php degrades to unresized images instead of breaking install.
+if ! php -r "exit(extension_loaded('gd') ? 0 : 1);" 2>/dev/null; then
+	phpver=$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;' 2>/dev/null)
+	echo "<INFO> Installing php-gd for PHP ${phpver:-unknown}..."
+	if { [ -n "$phpver" ] && apt-get install -y "php${phpver}-gd" 2>/dev/null; } || apt-get install -y php-gd 2>/dev/null; then
+		echo "<OK> php-gd installed."
+	else
+		echo "<WARNING> php-gd installation failed - cover.php will serve unresized images."
+	fi
+fi
+
 # Install docker on next reboot
 which docker > /dev/null
 if [ $? -ne 0 ]; then
