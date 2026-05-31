@@ -355,6 +355,15 @@ function as_group_versions(tags) {
 	(tags || []).forEach(function(t) {
 		if (/^\d+\./.test(t)) versions.push(t); else channels.push(t);
 	});
+	// Collapse alias pairs: a channel "X" and its "X-latest" point to the same
+	// rolling build, so keep only "X-latest" and drop the redundant bare "X".
+	var hasLatest = {};
+	channels.forEach(function(c) {
+		if (/-latest$/.test(c)) hasLatest[c.replace(/-latest$/, '')] = true;
+	});
+	channels = channels.filter(function(c) {
+		return /-latest$/.test(c) || !hasLatest[c];
+	});
 	var prio = { 'latest': 0, 'stable': 1, 'beta-latest': 2, 'beta': 3, 'dev-latest': 4, 'dev': 5 };
 	channels.sort(function(a, b) {
 		var pa = (a in prio) ? prio[a] : 99, pb = (b in prio) ? prio[b] : 99;
