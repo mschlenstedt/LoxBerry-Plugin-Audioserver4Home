@@ -227,7 +227,7 @@ sub preparetemplate
 		my $text2speech_label = $L{'COMMON.LABEL_TEXT2SPEECH'} || "Text2Speech";
 
 		$navbar{70}{Name} = "$text2speech_label";
-		$navbar{70}{URL} = "http://" . LoxBerry::System::get_localip() . ":$lbwebport/admin/plugins/text2speech/";
+		$navbar{70}{URL} = "/admin/plugins/text2speech/";
 		$navbar{70}{target} = "_blank";
 	}
 	
