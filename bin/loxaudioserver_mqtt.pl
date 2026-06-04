@@ -165,9 +165,15 @@ sub fetch_json {
     my ($path) = @_;
     my $resp = $ua->get("$base_url$path");
     unless ($resp->is_success) {
+        # lox-audioserver kann nach Session-Ablauf (~24h) einen echten HTTP 401 liefern
+        # (statt des erwarteten JSON-Body {"error":"auth-required"}).
+        # Beide Fälle müssen als AUTH_REQUIRED behandelt werden, damit die Polling-Schleife
+        # einen Re-Login ausloest - statt endlos mit undef zurueckzukehren.
+        if ($resp->code == 401) {
+            LOGWARN("Session abgelaufen (HTTP 401) bei $path - Re-Login erforderlich");
+            return 'AUTH_REQUIRED';
+        }
         LOGERR("HTTP-Fehler bei $path: " . $resp->status_line);
-        # Note: lox-audioserver returns 200 + {"error":"auth-required"} for auth failures,
-        # not HTTP 401/403, so we don't need a special case here.
         return undef;
     }
     my $data = eval { decode_json($resp->content) };
