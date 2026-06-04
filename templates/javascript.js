@@ -322,6 +322,60 @@ function getconfig() {
 
 // AUDIOSERVER LOAD VERSIONS
 
+// Semver-ish comparator (ascending). Pre-releases rank below the matching
+// stable release (4.0.0 > 4.0.0-beta.13 > 4.0.0-beta.9). Numeric, so
+// beta.13 correctly sorts above beta.9.
+function as_vcmp(x, y) {
+	var xs = x.split('-'), ys = y.split('-');
+	var xb = xs[0].split('.').map(Number), yb = ys[0].split('.').map(Number);
+	var n = Math.max(xb.length, yb.length);
+	for (var i = 0; i < n; i++) {
+		var c = (xb[i] || 0) - (yb[i] || 0);
+		if (c) return c;
+	}
+	var xp = xs.slice(1).join('-'), yp = ys.slice(1).join('-');
+	if (!xp && yp) return 1;   // stable > prerelease
+	if (xp && !yp) return -1;
+	if (!xp && !yp) return 0;
+	var xname = xp.replace(/[\d.].*$/, ''), yname = yp.replace(/[\d.].*$/, '');
+	if (xname !== yname) return xname < yname ? -1 : 1;   // alpha < beta < rc
+	var xn = (xp.match(/\d+/g) || []).map(Number), yn = (yp.match(/\d+/g) || []).map(Number);
+	var m = Math.max(xn.length, yn.length);
+	for (var j = 0; j < m; j++) {
+		var d = (xn[j] || 0) - (yn[j] || 0);
+		if (d) return d;
+	}
+	return 0;
+}
+
+// Split tags into "Channels" (rolling pointers like beta-latest/dev) and
+// "Versionen" (concrete X.Y.Z tags), each sorted; empty groups are dropped.
+function as_group_versions(tags) {
+	var channels = [], versions = [];
+	(tags || []).forEach(function(t) {
+		if (/^\d+\./.test(t)) versions.push(t); else channels.push(t);
+	});
+	// Collapse alias pairs: a channel "X" and its "X-latest" point to the same
+	// rolling build, so keep only "X-latest" and drop the redundant bare "X".
+	var hasLatest = {};
+	channels.forEach(function(c) {
+		if (/-latest$/.test(c)) hasLatest[c.replace(/-latest$/, '')] = true;
+	});
+	channels = channels.filter(function(c) {
+		return /-latest$/.test(c) || !hasLatest[c];
+	});
+	var prio = { 'latest': 0, 'stable': 1, 'beta-latest': 2, 'beta': 3, 'dev-latest': 4, 'dev': 5 };
+	channels.sort(function(a, b) {
+		var pa = (a in prio) ? prio[a] : 99, pb = (b in prio) ? prio[b] : 99;
+		return pa - pb || a.localeCompare(b);
+	});
+	versions.sort(function(a, b) { return as_vcmp(b, a); });   // newest first
+	var groups = [];
+	if (channels.length) groups.push({ label: 'Channels', tags: channels });
+	if (versions.length) groups.push({ label: 'Versionen', tags: versions });
+	return groups;
+}
+
 function as_load_versions() {
 
 	$.ajax({
@@ -342,11 +396,14 @@ function as_load_versions() {
 		console.log("as_load_versions Done", data);
 		var $sel = $("#as_version");
 		$sel.empty();
-		if (data.tags && data.tags.length > 0) {
-			$.each(data.tags, function(i, tag) {
-				$sel.append($('<option>').val(tag).text(tag));
+		var groups = as_group_versions(data.tags);
+		$.each(groups, function(i, g) {
+			var $og = $('<optgroup>').attr('label', g.label);
+			$.each(g.tags, function(j, tag) {
+				$og.append($('<option>').val(tag).text(tag));
 			});
-		}
+			$sel.append($og);
+		});
 		if (data.current) {
 			if ($sel.find('option[value="' + data.current + '"]').length === 0) {
 				$sel.prepend($('<option>').val(data.current).text(data.current));

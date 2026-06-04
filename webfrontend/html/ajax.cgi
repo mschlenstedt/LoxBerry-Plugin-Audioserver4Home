@@ -163,8 +163,14 @@ if( $q->{action} eq "saveasettings" ) {
 			if ( defined $q->{version} && $q->{version} =~ /^[\w.\-]+$/ ) {
 				my $compose = LoxBerry::System::read_file("$lbpconfigdir/docker-compose.yml");
 				if ( $compose ) {
+					my ($oldversion) = $compose =~ m{image:\s*ghcr\.io/lox-audioserver/lox-audioserver:(\S+)};
 					$compose =~ s{(image:\s*ghcr\.io/lox-audioserver/lox-audioserver:)\S+}{$1$q->{version}};
 					LoxBerry::System::write_file("$lbpconfigdir/docker-compose.yml", $compose);
+					# A version change only takes effect once the container is recreated; recreate it
+					# (only when the tag actually changed and the service runs internally).
+					if ( (!defined $oldversion || $oldversion ne $q->{version}) && (!defined $q->{internal} || $q->{internal} ne '0') ) {
+						system("$lbpbindir/as_watchdog.pl --action=restart --verbose=0 > /dev/null 2>&1 &");
+					}
 				}
 			}
 			$response = encode_json( { ok => 1 } );

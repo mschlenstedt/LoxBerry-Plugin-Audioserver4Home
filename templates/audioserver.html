@@ -131,6 +131,27 @@
 	height: 80%;
 }
 
+/* Hint below a fieldcontain control, flush with the input column.
+   jQuery Mobile floats the label (20% + 2% margin) only at >=28em. */
+.as-fieldhint {
+	clear:         both;
+	font-size:     0.85em;
+	color:         #555;
+	line-height:   1.55;
+	margin:        0.7em 0 0;
+	padding:       0.55em 0.8em;
+	background:    #f3f7ef;
+	border-left:   3px solid #5a9e2f;
+	border-radius: 4px;
+}
+.as-fieldhint b      { color: #2f2f2f; }
+.as-fieldhint code   { background: #e7ede0; padding: 0 0.25em; border-radius: 3px; }
+.as-fieldhint p      { margin: 0; }
+.as-fieldhint p + p  { margin-top: 0.6em; }
+@media (min-width: 28em) {
+	.as-fieldhint { margin-left: 22%; }
+}
+
 </style>
 
 <div class="servicestatus">
@@ -167,6 +188,7 @@
 	<select id="as_version" name="as_version">
 		<option value=""><TMPL_VAR "AUDIOSERVER.HINT_LOADING_VERSIONS"></option>
 	</select>
+	<div class="as-fieldhint"><TMPL_VAR "AUDIOSERVER.HELP_VERSION"></div>
 </div>
 
 <span id="as_savinghint"></span>
