@@ -35,6 +35,21 @@
 	text-align: center;
 }
 
+/* Hinweiszeile unter einem Feld: soll in der Eingabespalte stehen, nicht über
+   die volle Breite unter dem Label. jQuery Mobile floatet das Label eines
+   fieldcontain ab 28em auf 20% Breite + 2% Abstand - derselbe Breakpoint hier,
+   damit der Hinweis in der schmalen (gestapelten) Ansicht bündig links bleibt. */
+.fieldhint {
+	clear: both;
+	margin: 0.4em 0 0 0;
+}
+
+@media (min-width: 28em) {
+	.fieldhint {
+		margin-left: 22%;
+	}
+}
+
 .grid {
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -168,7 +183,7 @@
 	<select id="gw_miniserver" name="gw_miniserver">
 		<option value=""><TMPL_VAR "GATEWAY.HINT_LOADING_MINISERVERS"></option>
 	</select>
-	<p class="small grayed"><TMPL_VAR "GATEWAY.HINT_MINISERVER"></p>
+	<p class="small grayed fieldhint"><TMPL_VAR "GATEWAY.HINT_MINISERVER"></p>
 </div>
 
 <span id="gw_savinghint"></span>
