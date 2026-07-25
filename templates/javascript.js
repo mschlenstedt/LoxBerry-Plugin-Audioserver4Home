@@ -364,7 +364,7 @@ function as_group_versions(tags) {
 	channels = channels.filter(function(c) {
 		return /-latest$/.test(c) || !hasLatest[c];
 	});
-	var prio = { 'latest': 0, 'stable': 1, 'beta-latest': 2, 'beta': 3, 'dev-latest': 4, 'dev': 5 };
+	var prio = { 'latest': 0, 'stable': 1, 'beta-latest': 2, 'beta': 3, 'testing-latest': 4, 'testing': 5, 'dev-latest': 6, 'dev': 7 };
 	channels.sort(function(a, b) {
 		var pa = (a in prio) ? prio[a] : 99, pb = (b in prio) ? prio[b] : 99;
 		return pa - pb || a.localeCompare(b);

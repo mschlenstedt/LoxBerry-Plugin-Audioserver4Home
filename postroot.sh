@@ -25,13 +25,20 @@ pluginname=$3
 CONFIGDIR="$ARGV5/config/plugins/$ARGV3"
 BINDIR="$ARGV5/bin/plugins/$ARGV3"
 
-# Restart Lox-Audioserver if it was running before installation
+# Remove leftover containers before starting again. This has to cover both the
+# current name (sonn-core) and the one used before the upstream project was
+# renamed (lox-audioserver): an upgrade can start from either state, and a
+# surviving container would block the host ports and the container name.
+# The data lives in a bind mount, so removing the container is lossless.
+docker rm -f sonn-core lox-audioserver > /dev/null 2>&1
+
+# Restart AudioServer if it was running before installation
 if [ -f "$CONFIGDIR/as_stopped_changed.cfg" ]; then
-	echo "<INFO> Restarting Lox-Audioserver..."
+	echo "<INFO> Restarting AudioServer..."
 	rm -f "$CONFIGDIR/as_stopped.cfg"
 	su -s /bin/bash loxberry -c "perl $BINDIR/as_watchdog.pl --action=start"
 	rm -f "$CONFIGDIR/as_stopped_changed.cfg"
-	echo "<OK> Lox-Audioserver restarted."
+	echo "<OK> AudioServer restarted."
 fi
 
 # Restart MQTT Gateway if it was running before installation

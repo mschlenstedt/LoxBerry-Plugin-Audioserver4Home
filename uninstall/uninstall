@@ -15,29 +15,37 @@ pkill -f "loxaudioserver_mqtt.pl" > /dev/null 2>&1
 pkill -f "gw_watchdog.pl" > /dev/null 2>&1
 pkill -f "as_watchdog.pl" > /dev/null 2>&1
 
-echo "<INFO> Stopping Lox-Audioserver Docker container..."
-CONTAINER_NAME="lox-audioserver"
-IMAGE_REPO="ghcr.io/lox-audioserver/lox-audioserver"
+echo "<INFO> Stopping AudioServer Docker container..."
+# "lox-audioserver" is the name used before the upstream project was renamed to
+# sonn core - clean up both, otherwise leftovers of an older install remain.
+CONTAINER_NAMES="sonn-core lox-audioserver"
+IMAGE_REPOS="ghcr.io/sonn-audio/core ghcr.io/lox-audioserver/lox-audioserver"
 
-if docker container inspect "$CONTAINER_NAME" > /dev/null 2>&1; then
-    docker stop "$CONTAINER_NAME" > /dev/null 2>&1
-    docker rm "$CONTAINER_NAME" > /dev/null 2>&1
-    echo "<OK> Docker container $CONTAINER_NAME stopped and removed."
-else
-    echo "<INFO> Docker container $CONTAINER_NAME is not running."
-fi
-
-IMAGE=$(docker image ls --format "{{.Repository}}:{{.Tag}}" | grep "^${IMAGE_REPO}")
-if [ -n "$IMAGE" ]; then
-    echo "<INFO> Removing Docker image: $IMAGE"
-    docker image rm "$IMAGE" > /dev/null 2>&1
-    if [ $? -eq 0 ]; then
-        echo "<OK> Docker image $IMAGE removed."
+for CONTAINER_NAME in $CONTAINER_NAMES; do
+    if docker container inspect "$CONTAINER_NAME" > /dev/null 2>&1; then
+        docker stop "$CONTAINER_NAME" > /dev/null 2>&1
+        docker rm "$CONTAINER_NAME" > /dev/null 2>&1
+        echo "<OK> Docker container $CONTAINER_NAME stopped and removed."
     else
-        echo "<WARN> Could not remove Docker image $IMAGE (still in use?)."
+        echo "<INFO> Docker container $CONTAINER_NAME does not exist."
     fi
-else
-    echo "<INFO> Docker image $IMAGE_REPO not found – skipping."
-fi
+done
+
+for IMAGE_REPO in $IMAGE_REPOS; do
+    IMAGES=$(docker image ls --format "{{.Repository}}:{{.Tag}}" | grep "^${IMAGE_REPO}:")
+    if [ -z "$IMAGES" ]; then
+        echo "<INFO> Docker image $IMAGE_REPO not found – skipping."
+        continue
+    fi
+    for IMAGE in $IMAGES; do
+        echo "<INFO> Removing Docker image: $IMAGE"
+        docker image rm "$IMAGE" > /dev/null 2>&1
+        if [ $? -eq 0 ]; then
+            echo "<OK> Docker image $IMAGE removed."
+        else
+            echo "<WARN> Could not remove Docker image $IMAGE (still in use?)."
+        fi
+    done
+done
 
 exit 0

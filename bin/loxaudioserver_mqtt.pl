@@ -1,6 +1,7 @@
 #!/usr/bin/perl
 # loxaudioserver_mqtt.pl
-# MQTT Gateway for lox-audioserver — LoxBerry Plugin Daemon
+# MQTT Gateway for the AudioServer (sonn core, formerly lox-audioserver)
+# — LoxBerry Plugin Daemon
 
 use strict;
 use warnings;
@@ -38,7 +39,7 @@ my $log = LoxBerry::Log->new(
 if ($verbose) {
     $log->loglevel(7);
 }
-$log->LOGSTART('lox-audioserver MQTT Gateway gestartet');
+$log->LOGSTART('AudioServer MQTT Gateway gestartet');
 
 # ---------------------------------------------------------------------------
 # Config laden
@@ -61,7 +62,7 @@ unless ($host) {
     LOGCRIT("Konfigurationsfehler: loxaudioserver.host fehlt in plugin.json");
     exit 1;
 }
-LOGINF("lox-audioserver: http://$host:$port");
+LOGINF("AudioServer: http://$host:$port");
 LOGINF("MQTT Basetopic: $basetopic");
 
 # ---------------------------------------------------------------------------
@@ -157,7 +158,7 @@ sub login {
         LOGCRIT("Login abgelehnt: $err_msg");
         return 0;
     }
-    LOGOK("lox-audioserver Login erfolgreich (Benutzer: $lox_user)");
+    LOGOK("AudioServer Login erfolgreich (Benutzer: $lox_user)");
     return 1;
 }
 
@@ -165,7 +166,7 @@ sub fetch_json {
     my ($path) = @_;
     my $resp = $ua->get("$base_url$path");
     unless ($resp->is_success) {
-        # lox-audioserver kann nach Session-Ablauf (~24h) einen echten HTTP 401 liefern
+        # Der AudioServer kann nach Session-Ablauf (~24h) einen echten HTTP 401 liefern
         # (statt des erwarteten JSON-Body {"error":"auth-required"}).
         # Beide Fälle müssen als AUTH_REQUIRED behandelt werden, damit die Polling-Schleife
         # einen Re-Login ausloest - statt endlos mit undef zurueckzukehren.

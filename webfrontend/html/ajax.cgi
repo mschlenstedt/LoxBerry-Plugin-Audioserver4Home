@@ -48,12 +48,9 @@ if( $q->{action} eq "asservicestatus" ) {
 	} else {
 		my $internal = $cfg->{loxaudioserver}{internal} ? 1 : 0;
 		if ($internal) {
-			my $id;
-			my $count = `sudo docker ps | grep -c Up.*lox-audioserver`;
-			if ($count >= "1") {
-				$id = `sudo docker ps | grep Up.*lox-audioserver | awk '{ print \$1 }'`;
-				chomp ($id);
-			}
+			my (undef, undef, $container) = _as_image();
+			my $id = `sudo docker ps --filter 'name=^/$container\$' --filter status=running --format '{{.ID}}' 2>/dev/null`;
+			chomp ($id);
 			my %resp = ( pid => $id );
 			$response = encode_json( \%resp );
 		} else {
@@ -113,25 +110,31 @@ if( $q->{action} eq "getminiservers" ) {
 }
 
 if( $q->{action} eq "getversions" ) {
-	# Step 1: get anonymous pull token from ghcr.io
-	my $token_json = `curl -sf --max-time 10 'https://ghcr.io/token?scope=repository:lox-audioserver/lox-audioserver:pull&service=ghcr.io' 2>/dev/null`;
-	if ( !$token_json ) {
-		$error = "Could not reach ghcr.io";
+	# Image repo and current tag are taken from docker-compose.yml, so a future
+	# rename of the upstream project only has to be applied there (and in the
+	# upgrade migration) - not in every script.
+	my ($repo, $current) = _as_image();
+	my ($path) = $repo =~ m{^ghcr\.io/(.+)$};
+	if ( !$path ) {
+		$error = "Image in docker-compose.yml is not hosted on ghcr.io";
 	} else {
-		my $token_data = eval { decode_json($token_json) };
-		my $token      = $token_data ? $token_data->{token} : '';
-		if ( !$token ) {
-			$error = "Could not obtain ghcr.io token";
+		# Step 1: get anonymous pull token from ghcr.io
+		my $token_json = `curl -sf --max-time 10 'https://ghcr.io/token?scope=repository:$path:pull&service=ghcr.io' 2>/dev/null`;
+		if ( !$token_json ) {
+			$error = "Could not reach ghcr.io";
 		} else {
-			# Step 2: fetch tags list
-			my $tags_json = `curl -sf --max-time 10 -H "Authorization: Bearer $token" 'https://ghcr.io/v2/lox-audioserver/lox-audioserver/tags/list' 2>/dev/null`;
-			my $tags_data = $tags_json ? eval { decode_json($tags_json) } : undef;
-			# All named tags, sort descending
-			my @versions  = sort { $b cmp $a } @{ $tags_data ? $tags_data->{tags} : [] };
-			# Current version from docker-compose.yml
-			my $compose   = LoxBerry::System::read_file("$lbpconfigdir/docker-compose.yml") // '';
-			my ($current) = $compose =~ /image:\s*\S+:(\S+)/;
-			$response = encode_json( { tags => \@versions, current => $current // '' } );
+			my $token_data = eval { decode_json($token_json) };
+			my $token      = $token_data ? $token_data->{token} : '';
+			if ( !$token ) {
+				$error = "Could not obtain ghcr.io token";
+			} else {
+				# Step 2: fetch tags list
+				my $tags_json = `curl -sf --max-time 10 -H "Authorization: Bearer $token" 'https://ghcr.io/v2/$path/tags/list' 2>/dev/null`;
+				my $tags_data = $tags_json ? eval { decode_json($tags_json) } : undef;
+				# All named tags, sort descending
+				my @versions  = sort { $b cmp $a } @{ $tags_data ? $tags_data->{tags} : [] };
+				$response = encode_json( { tags => \@versions, current => $current } );
+			}
 		}
 	}
 }
@@ -163,8 +166,10 @@ if( $q->{action} eq "saveasettings" ) {
 			if ( defined $q->{version} && $q->{version} =~ /^[\w.\-]+$/ ) {
 				my $compose = LoxBerry::System::read_file("$lbpconfigdir/docker-compose.yml");
 				if ( $compose ) {
-					my ($oldversion) = $compose =~ m{image:\s*ghcr\.io/lox-audioserver/lox-audioserver:(\S+)};
-					$compose =~ s{(image:\s*ghcr\.io/lox-audioserver/lox-audioserver:)\S+}{$1$q->{version}};
+					# Replace the tag only - independent of the image repo, so this
+					# keeps working if the upstream project is renamed again.
+					my (undef, $oldversion) = _as_image();
+					$compose =~ s{^(\s*image:\s*[^\s:]+):\S+}{$1:$q->{version}}m;
 					LoxBerry::System::write_file("$lbpconfigdir/docker-compose.yml", $compose);
 					# A version change only takes effect once the container is recreated; recreate it
 					# (only when the tag actually changed and the service runs internally).
@@ -222,16 +227,25 @@ if( $q->{action} eq "getzones" ) {
 	}
 }
 
-sub _cleanup_old_images {
+# Image repo, tag and container name of the AudioServer, read from the
+# docker-compose.yml the plugin ships and maintains.
+sub _as_image {
 	my $compose = LoxBerry::System::read_file("$lbpconfigdir/docker-compose.yml") // '';
-	my ($current) = $compose =~ /image:\s*\S+:(\S+)/;
+	my ($repo, $tag)  = $compose =~ m{^\s*image:\s*([^\s:]+):(\S+)}m;
+	my ($container)   = $compose =~ m{^\s*container_name:\s*(\S+)}m;
+	return ( $repo // 'ghcr.io/sonn-audio/core', $tag // '', $container // 'sonn-core' );
+}
+
+sub _cleanup_old_images {
+	my ($repo, $current) = _as_image();
 	return unless $current;
 	my @images = `sudo docker image ls --format '{{.Repository}}:{{.Tag}}' 2>/dev/null`;
 	for my $img (@images) {
 		chomp $img;
-		next unless $img =~ /^ghcr\.io\/lox-audioserver\/lox-audioserver:/;
-		my ($tag) = $img =~ /:([^:]+)$/;
-		next if $tag eq $current;
+		# Own images of another tag - plus leftovers of the old, renamed project
+		# (ghcr.io/lox-audioserver/lox-audioserver), which are dead weight now.
+		next unless $img =~ m{^\Q$repo\E:} || $img =~ m{^ghcr\.io/lox-audioserver/lox-audioserver:};
+		next if $img eq "$repo:$current";
 		system("sudo docker image rm \Q$img\E > /dev/null 2>&1 &");
 	}
 }
