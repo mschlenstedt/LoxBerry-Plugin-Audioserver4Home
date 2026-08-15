@@ -331,108 +331,6 @@ function as_save_settings() {
 
 }
 
-// Save SETTINGS (save to config)
-/*
-function save_settings() {
-
-	$("#savinghint_settings").attr("style", "color:blue").html("<TMPL_VAR "COMMON.HINT_SAVING">");
-	$.ajax( { 
-			url:  '<TMPL_VAR AJAX_URL>',
-			type: 'POST',
-			data: { 
-				action: 'savesettings',
-				topic: $("#topic_settings").val(),
-				valuecycle: $("#valuescycle_settings").val(),
-				statuscycle: $("#statuscycle_settings").val(),
-			}
-		} )
-	.fail(function( data ) {
-		console.log( "save_settings Fail", data );
-		var jsonresp = JSON.parse(data.responseText);
-		$("#savinghint_settings").attr("style", "color:red").html("<TMPL_VAR "COMMON.HINT_SAVING_FAILED">" + " Error: " + jsonresp.error + " (Statuscode: " + data.status + ").");
-	})
-	.done(function( data ) {
-		console.log( "save_settings Done", data );
-		if (data.error) {
-			$("#savinghint_settings").attr("style", "color:red").html("<TMPL_VAR "COMMON.HINT_SAVING_FAILED">" + " Error: " + data.error + ").");
-		} else {
-			$("#savinghint_settings").attr("style", "color:green").html("<TMPL_VAR "COMMON.HINT_SAVING_SUCCESS">" + ".");
-			getconfig();
-		}
-	})
-	.always(function( data ) {
-		console.log( "save_settings Finished", data );
-	});
-
-}
-
-// Save SENSORS (save to config)
-
-function save_settings() {
-
-	$("#savinghint_settings").attr("style", "color:blue").html("<TMPL_VAR "COMMON.HINT_SAVING">");
-	$.ajax( { 
-			url:  '<TMPL_VAR AJAX_URL>',
-			type: 'POST',
-			data: { 
-				action: 'savesensors',
-				temp_topic: $("#temp_topic").val(),
-				humidity_topic: $("#humidity_topic").val(),
-				pressure_topic: $("#pressure_topic").val(),
-				illuminance_topic: $("#illuminance_topic").val(),
-				twilight_topic: $("#twilight_topic").val(),
-				solarradiation_topic: $("#solarradiation_topic").val(),
-				uv_topic: $("#uv_topic").val(),
-				lightning_distance_topic: $("#lightning_distance_topic").val(),
-				lightning_last_topic: $("#lightning_last_topic").val(),
-				lightning_number_topic: $("#lightning_number_topic").val(),
-				windspeed_topic: $("#windspeed_topic").val(),
-				winddir_topic: $("#winddir_topic").val(),
-				rainstate_topic: $("#rainstate_topic").val(),
-				rainrate_topic: $("#rainrate_topic").val(),
-				winddir_0_1: $("#winddir_0_1").val(),
-				winddir_0_1: $("#winddir_0_2").val(),
-				winddir_0_1: $("#winddir_45_1").val(),
-				winddir_0_1: $("#winddir45__2").val(),
-				winddir_0_1: $("#winddir_90_1").val(),
-				winddir_0_1: $("#winddir_90_2").val(),
-				winddir_0_1: $("#winddir_135_1").val(),
-				winddir_0_1: $("#winddir_135_2").val(),
-				winddir_0_1: $("#winddir_180_1").val(),
-				winddir_0_1: $("#winddir_180_2").val(),
-				winddir_0_1: $("#winddir_225_1").val(),
-				winddir_0_1: $("#winddir_225_2").val(),
-				winddir_0_1: $("#winddir_270_1").val(),
-				winddir_0_1: $("#winddir_270_2").val(),
-				winddir_0_1: $("#winddir_315_1").val(),
-				winddir_0_1: $("#winddir_315_2").val(),
-				pressure_height: $("#pressure_height").val(),
-				twilight_max: $("#twilight_max").val(),
-				solarradiation_max: $("#solarradiation_max").val(),
-				solarradiation_offset: $("#solarradiation_offset").val(),
-			}
-		} )
-	.fail(function( data ) {
-		console.log( "save_settings Fail", data );
-		var jsonresp = JSON.parse(data.responseText);
-		$("#savinghint_sensors").attr("style", "color:red").html("<TMPL_VAR "COMMON.HINT_SAVING_FAILED">" + " Error: " + jsonresp.error + " (Statuscode: " + data.status + ").");
-	})
-	.done(function( data ) {
-		console.log( "save_sensors Done", data );
-		if (data.error) {
-			$("#savinghint_sensors").attr("style", "color:red").html("<TMPL_VAR "COMMON.HINT_SAVING_FAILED">" + " Error: " + data.error + ").");
-		} else {
-			$("#savinghint_sensors").attr("style", "color:green").html("<TMPL_VAR "COMMON.HINT_SAVING_SUCCESS">" + ".");
-			getconfig();
-		}
-	})
-	.always(function( data ) {
-		console.log( "save_sensors Finished", data );
-	});
-
-}
-
-*/
 
 // ── Playermanager ────────────────────────────────────────────────────────────
 
@@ -695,13 +593,6 @@ function save_settings() {
 		if (!zone) return '';
 		var t = zone.track ? (zone.track.title || '') : '';
 		return t || pm_station(zone) || '';
-	}
-
-	function pm_state_label(state, power) {
-		if (state === 'playing') return '<TMPL_VAR "PLAYERMANAGER.LABEL_PLAYING">';
-		if (state === 'paused')  return '<TMPL_VAR "PLAYERMANAGER.LABEL_PAUSED">';
-		if (power === 'on')      return '<TMPL_VAR "PLAYERMANAGER.LABEL_READY">';
-		return '<TMPL_VAR "PLAYERMANAGER.LABEL_IDLE">';
 	}
 
 	function pm_fmt_time(sec) {
