@@ -57,7 +57,7 @@ my $cfg = $jsonobj->open(filename => $cfgfile, readonly => 1);
 # Handle the Text2Speech navigation locally first. This makes it possible
 # to verify the remote plugin before redirecting the browser.
 if (defined $q->{action} && $q->{action} eq "open_text2speech") {
-	&open_text2speech_target();
+	&text2speech();
 	exit;
 }
 
@@ -135,97 +135,72 @@ sub form_logs
 ###################
 
 ##########################################################################
-# Get Text2Speech Web UI URL from AudioServer configuration
+# Open configured Text2Speech or offer installation if it is missing
 ##########################################################################
 
-sub get_text2speech_host
+sub text2speech
 {
+	# Read configured TTS provider
 	my $json = LoxBerry::JSON->new();
 	my $config = $json->open(
 		filename => "$lbpdatadir/data/config.json",
 		readonly => 1
 	);
-	return undef if !$config;
 
-	my $provider = $config->{content}->{tts}->{provider};
-	return undef if !$provider;
-	return undef if ($provider->{type} // '') ne 'loxberry-tts';
-	return undef if !$provider->{enabled};
-	return undef if !defined $provider->{host} || $provider->{host} eq '';
-	return $provider->{host};
-}
+	my $provider = $config->{content}->{tts}->{provider} if $config;
 
-##########################################################################
-# Probe whether Text2Speech is installed on the configured remote LoxBerry
-##########################################################################
-
-sub probe_text2speech_installation
-{
-	my ($url) = @_;
-	my $status = `curl -k -s -o /dev/null -w '%{http_code}' --connect-timeout 4 --max-time 8 "$url"`;
-	return -1 if !$status || $status eq '000';
-	return 0  if $status >= 400;
-	return 1;
-}
-
-##########################################################################
-# Read current Text2Speech ARCHIVEURL from release.cfg
-##########################################################################
-
-sub get_text2speech_release_archive_url
-{
-	my $api = "https://api.github.com/repos/Liver64/LoxBerry-TTS/releases/latest";
-
-	my $release = `curl -k -sfL --max-time 10 -H 'Accept: application/vnd.github+json' -H 'User-Agent: LoxBerry-AudioServer4Home' "$api" 2>/dev/null`;
-	return undef if !$release;
-
-	my ($tag) = $release =~ /"tag_name"\s*:\s*"([^"]+)"/;
-	return undef if !$tag;
-
-	# Read release.cfg from the published release tag, never from master.
-	my $release_cfg = `curl -k -sfL --max-time 10 "https://raw.githubusercontent.com/Liver64/LoxBerry-TTS/$tag/release.cfg" 2>/dev/null`;
-	return undef if !$release_cfg;
-
-	my ($archive_url) = $release_cfg =~ /^ARCHIVEURL=(.+)$/m;
-	return undef if !$archive_url;
-
-	$archive_url =~ s/\r$//;
-	return $archive_url;
-}
-
-##########################################################################
-# Open Text2Speech, or installer with prefilled release URL if it is missing
-##########################################################################
-
-sub open_text2speech_target
-{
-	my $host = &get_text2speech_host();
-
-	if (!$host) {
+	if (
+		!$provider
+		|| ($provider->{type} // '') ne 'loxberry-tts'
+		|| !$provider->{enabled}
+		|| !$provider->{host}
+	) {
 		print $cgi->redirect('index.cgi');
 		exit;
 	}
 
+	my $host       = $provider->{host};
 	my $base_url   = "http://$host";
 	my $plugin_url = "$base_url/admin/plugins/text2speech/";
 	my $probe_url  = "$base_url/plugins/text2speech/index.php";
 
-	my $installed = &probe_text2speech_installation($probe_url);
-	if ($installed == 0) {
-		my $archive_url = &get_text2speech_release_archive_url();
-		if ($archive_url) {
-			my $installer_url =
-				"$base_url/admin/system/plugininstall.cgi?url=$archive_url";
-			print $cgi->redirect($installer_url);
-			exit;
+	# Check if Text2Speech is installed
+	my $status = `curl -k -s -o /dev/null -w '%{http_code}' --connect-timeout 4 --max-time 8 "$probe_url"`;
+
+	if ($status && $status ne '000' && $status >= 400) {
+
+		# Get latest published Text2Speech release
+		my $api = "https://api.github.com/repos/Liver64/LoxBerry-TTS/releases/latest";
+
+		my $release = `curl -k -sfL --max-time 10 -H 'Accept: application/vnd.github+json' -H 'User-Agent: LoxBerry-AudioServer4Home' "$api" 2>/dev/null`;
+
+		my ($tag) = $release =~ /"tag_name"\s*:\s*"([^"]+)"/ if $release;
+
+		if ($tag) {
+			# Read release.cfg from the published release tag
+			my $release_cfg = `curl -k -sfL --max-time 10 "https://raw.githubusercontent.com/Liver64/LoxBerry-TTS/$tag/release.cfg" 2>/dev/null`;
+
+			my ($archive_url) = $release_cfg =~ /^ARCHIVEURL=(.+)$/m if $release_cfg;
+
+			if ($archive_url) {
+				$archive_url =~ s/\r$//;
+
+				print $cgi->redirect(
+					"$base_url/admin/system/plugininstall.cgi?url=$archive_url"
+				);
+				exit;
+			}
 		}
+
+		# Latest release could not be determined
 		print $cgi->redirect("$base_url/admin/system/plugininstall.cgi");
 		exit;
 	}
+
+	# Text2Speech is installed
 	print $cgi->redirect($plugin_url);
 	exit;
 }
-
 
 ##########################################################################
 # Print Form
@@ -274,16 +249,24 @@ sub preparetemplate
 	$navbar{60}{URL} = "$asurl";
 	$navbar{60}{target} = '_blank';
 
-	# Show Text2Speech navigation entry only for an enabled external LoxBerry TTS provider.
-	my $text2speech_host = &get_text2speech_host();
-	if ($text2speech_host) {
+	# Show Text2Speech navigation entry only if an external TTS provider is configured.
+	my $ttsjson = LoxBerry::JSON->new();
+	my $ttsconfig = $ttsjson->open(
+		filename => "$lbpdatadir/data/config.json",
+		readonly => 1
+	);
+	my $ttsprovider = $ttsconfig->{content}->{tts}->{provider} if $ttsconfig;
+	if (
+		$ttsprovider
+		&& ($ttsprovider->{type} // '') eq 'loxberry-tts'
+		&& $ttsprovider->{enabled}
+		&& $ttsprovider->{host}
+	) {
 		my $text2speech_label = $L{'COMMON.LABEL_TEXT2SPEECH'} || "Text2Speech";
-
-		$navbar{70}{Name}   = "$text2speech_label";
+		$navbar{70}{Name}   = $text2speech_label;
 		$navbar{70}{URL}    = 'index.cgi?action=open_text2speech';
-		$navbar{70}{target} = "_blank";
+		$navbar{70}{target} = '_blank';
 	}
-	
 	$navbar{98}{Name} = "$L{'COMMON.LABEL_LOGS'}";
 	$navbar{98}{URL} = 'index.cgi?form=logs';
 	$navbar{98}{active} = 1 if $q->{form} eq "logs";
