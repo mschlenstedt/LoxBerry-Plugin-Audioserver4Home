@@ -45,14 +45,5 @@ if [ -f "$CONFIGDIR/as_stopped_changed.cfg" ]; then
 	echo "<OK> AudioServer restarted."
 fi
 
-# Restart MQTT Gateway if it was running before installation
-if [ -f "$CONFIGDIR/gw_stopped_changed.cfg" ]; then
-	echo "<INFO> Restarting MQTT Gateway..."
-	rm -f "$CONFIGDIR/gw_stopped.cfg"
-	su -s /bin/bash loxberry -c "perl $BINDIR/gw_watchdog.pl --action=start"
-	rm -f "$CONFIGDIR/gw_stopped_changed.cfg"
-	echo "<OK> MQTT Gateway restarted."
-fi
-
 # Exit with Status 0
 exit 0

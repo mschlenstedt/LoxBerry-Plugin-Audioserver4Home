@@ -70,45 +70,6 @@ if( $q->{action} eq "asservicestatus" ) {
 	}
 }
 
-if( $q->{action} eq "gwservicerestart" ) {
-	system ("$lbpbindir/gw_watchdog.pl --action=restart --verbose=0 > /dev/null 2>&1 &");
-	my $resp = $?;
-	sleep(1);
-	my $status = LoxBerry::System::lock(lockfile => 'gw-watchdog', wait => 600);
-	$response = $resp;
-}
-
-if( $q->{action} eq "gwservicestop" ) {
-	system ("$lbpbindir/gw_watchdog.pl --action=stop --verbose=0 > /dev/null 2>&1");
-	$response = $?;
-}
-
-if( $q->{action} eq "gwservicestatus" ) {
-	my $id;
-	my $count = `pgrep -A -c -f "loxaudioserver_mqtt.pl"`;
-	chomp ($count);
-	if ($count >= "1") {
-		$id = `pgrep -A -f "loxaudioserver_mqtt.pl"`;
-		chomp ($id);
-	}
-	my %response = ( pid => $id );
-	chomp (%response);
-	$response = encode_json( \%response );
-}
-
-if( $q->{action} eq "getminiservers" ) {
-	require LoxBerry::JSON;
-	my %ms_raw = LoxBerry::System::get_miniservers();
-	my @ms_list;
-	for my $nr ( sort { $a <=> $b } keys %ms_raw ) {
-		push @ms_list, { nr => $nr+0, name => $ms_raw{$nr}{Name} };
-	}
-	my $cfgobj  = LoxBerry::JSON->new();
-	my $cfg     = $cfgobj->open(filename => "$lbpconfigdir/plugin.json", readonly => 1);
-	my $current = ($cfg && defined $cfg->{mqtt}{miniserver}) ? $cfg->{mqtt}{miniserver}+0 : 1;
-	$response   = encode_json({ miniservers => \@ms_list, current => $current });
-}
-
 if( $q->{action} eq "getversions" ) {
 	# Image repo and current tag are taken from docker-compose.yml, so a future
 	# rename of the upstream project only has to be applied there (and in the
@@ -183,27 +144,6 @@ if( $q->{action} eq "saveasettings" ) {
 	}
 }
 
-if( $q->{action} eq "savegwsettings" ) {
-	require LoxBerry::JSON;
-	my $cfgfile = "$lbpconfigdir/plugin.json";
-	my $jsonobj = LoxBerry::JSON->new();
-	my $cfg = $jsonobj->open(filename => $cfgfile);
-	if ( !$cfg ) {
-		$error = "Could not open config file";
-	} else {
-		$cfg->{mqtt}->{basetopic}    = $q->{basetopic}          if defined $q->{basetopic};
-		$cfg->{mqtt}->{polling}      = $q->{polling}+0          if defined $q->{polling};
-		$cfg->{mqtt}->{polling_slow} = $q->{polling_slow}+0     if defined $q->{polling_slow};
-		$cfg->{mqtt}->{miniserver}   = $q->{miniserver}+0       if defined $q->{miniserver};
-		eval { $jsonobj->write() };
-		if ( $@ ) {
-			$error = "Could not save settings: $@";
-		} else {
-			$response = encode_json( { ok => 1 } );
-		}
-	}
-}
-
 if( $q->{action} eq "getconfig" ) {
 	require LoxBerry::JSON;
 	my $cfgfile = "$lbpconfigdir/plugin.json";
@@ -213,18 +153,23 @@ if( $q->{action} eq "getconfig" ) {
 }
 
 if( $q->{action} eq "getzones" ) {
-	my $shm_file = '/dev/shm/audioserver4home.json';
-	if ( open(my $fh, '<', $shm_file) ) {
-		local $/;
-		$response = <$fh>;
-		close $fh;
-		# Empty or missing SHM content: treat as offline
-		$response = '{}' if !$response || $response =~ /^\s*$/;
-	} else {
-		# File doesn't exist (gateway never started or cleared on shutdown)
-		# Return empty JSON with 200; JS checks for data.zones to detect offline state
-		$response = '{}';
-	}
+	# Passed straight through from the AudioServer's own API. Its shape
+	# ({"zones":[...]}) is what the Player Manager already expects.
+	require LoxBerry::JSON;
+	my $cfgobj = LoxBerry::JSON->new();
+	my $cfg    = $cfgobj->open(filename => "$lbpconfigdir/plugin.json", readonly => 1);
+	my $host   = $cfg ? ($cfg->{loxaudioserver}{host} // 'localhost') : 'localhost';
+	my $port   = $cfg ? ($cfg->{loxaudioserver}{port} // 7090) : 7090;
+	$host =~ s/[^a-zA-Z0-9.\-]//g;
+	$port =~ s/[^0-9]//g;
+	$port ||= 7090;
+
+	my $json = `curl -sf --max-time 3 --connect-timeout 3 'http://$host:$port/api/v1/zones' 2>/dev/null`;
+
+	# Anything unusable becomes an empty object with HTTP 200 - the Player
+	# Manager treats a missing data.zones as "not reachable" and renders an
+	# empty grid, so it needs no error handling of its own.
+	$response = ( $json && eval { decode_json($json) } ) ? $json : '{}';
 }
 
 # Image repo, tag and container name of the AudioServer, read from the

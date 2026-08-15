@@ -66,11 +66,6 @@ elsif ($q->{form} eq "audioserver") {
 	$template = LoxBerry::System::read_file($templatefile);
 	&form_audioserver();
 }
-elsif ($q->{form} eq "gateway") {
-	$templatefile = "$lbptemplatedir/gateway.html";
-	$template = LoxBerry::System::read_file($templatefile);
-	&form_gateway();
-}
 elsif ($q->{form} eq "logs") {
 	$templatefile = "$lbptemplatedir/log_settings.html";
 	$template = LoxBerry::System::read_file($templatefile);
@@ -104,18 +99,6 @@ sub form_playermanager
 ##########################################################################
 
 sub form_audioserver
-{
-	# Prepare template
-	&preparetemplate();
-
-	return();
-}
-
-##########################################################################
-# Form: Gateway
-##########################################################################
-
-sub form_gateway
 {
 	# Prepare template
 	&preparetemplate();
@@ -213,10 +196,6 @@ sub preparetemplate
 	$navbar{30}{Name} = "$L{'COMMON.LABEL_AUDIOSERVER'}";
 	$navbar{30}{URL} = 'index.cgi?form=audioserver';
 	$navbar{30}{active} = 1 if $q->{form} eq "audioserver";
-
-	$navbar{40}{Name} = "$L{'COMMON.LABEL_GATEWAY'}";
-	$navbar{40}{URL} = 'index.cgi?form=gateway';
-	$navbar{40}{active} = 1 if $q->{form} eq "gateway";
 
 	$navbar{60}{Name} = "$L{'COMMON.LABEL_AS_WEBUI'}";
 	$navbar{60}{URL} = "$asurl";

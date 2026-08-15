@@ -11,6 +11,8 @@ PCONFIG=$LBPCONFIG/$PDIR
 PBIN=$LBPBIN/$PDIR
 
 echo "<INFO> Stopping Audioserver4Home MQTT Gateway..."
+# loxaudioserver_mqtt.pl / gw_watchdog.pl were removed in v3.2.0 - still killed
+# here in case an uninstall runs against a working copy of an older version.
 pkill -f "loxaudioserver_mqtt.pl" > /dev/null 2>&1
 pkill -f "gw_watchdog.pl" > /dev/null 2>&1
 pkill -f "as_watchdog.pl" > /dev/null 2>&1
