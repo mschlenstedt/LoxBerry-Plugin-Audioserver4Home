@@ -38,23 +38,28 @@ fi
 # Stop services before chown (only on upgrade, skipped silently on first install)
 CONFIGDIR="$ARGV5/config/plugins/$ARGV3"
 
-# Stop Lox-Audioserver
+# Stop AudioServer
 if [ ! -f "$CONFIGDIR/as_stopped.cfg" ]; then
 	touch "$CONFIGDIR/as_stopped.cfg"
 	touch "$CONFIGDIR/as_stopped_changed.cfg"
 fi
-echo "<INFO> Stopping Lox-Audioserver..."
+echo "<INFO> Stopping AudioServer..."
 sudo docker compose -f "$CONFIGDIR/docker-compose.yml" down 2>/dev/null
-echo "<OK> Lox-Audioserver stopped."
+# Belt and braces: if "compose down" did not run (e.g. Docker not yet installed
+# or a broken compose file), a container would keep holding the host ports.
+# "sonn-core" is the current name, "lox-audioserver" the one used before the
+# upstream project was renamed - both may exist depending on the installed version.
+sudo docker rm -f sonn-core lox-audioserver > /dev/null 2>&1
+echo "<OK> AudioServer stopped."
 
-# Stop MQTT Gateway
-if [ ! -f "$CONFIGDIR/gw_stopped.cfg" ]; then
-	touch "$CONFIGDIR/gw_stopped.cfg"
-	touch "$CONFIGDIR/gw_stopped_changed.cfg"
-fi
-echo "<INFO> Stopping MQTT Gateway..."
+# The plugin's own MQTT gateway was removed in v3.2.0 - the AudioServer
+# publishes to the broker itself now. Kill an instance left over from an older
+# version, otherwise it keeps running and republishing stale topics.
+echo "<INFO> Stopping the old MQTT Gateway (removed in v3.2.0)..."
 pkill -f "loxaudioserver_mqtt.pl" 2>/dev/null
-echo "<OK> MQTT Gateway stopped."
+pkill -f "gw_watchdog.pl" 2>/dev/null
+rm -f "$CONFIGDIR/gw_stopped.cfg" "$CONFIGDIR/gw_stopped_changed.cfg"
+echo "<OK> Old MQTT Gateway stopped."
 
 # Chown data and config folders
 echo "<INFO> Correcting Ownership of Data Folder..."

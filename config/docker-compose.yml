@@ -1,8 +1,8 @@
 services:
-  loxoneaudioserver:
-    container_name: lox-audioserver
-    image: ghcr.io/lox-audioserver/lox-audioserver:4.0.0-beta.9
-    hostname: lox-audioserver
+  sonn-core:
+    container_name: sonn-core
+    image: ghcr.io/sonn-audio/core:beta-latest
+    hostname: sonn-core
     restart: unless-stopped
     network_mode: host
     volumes:

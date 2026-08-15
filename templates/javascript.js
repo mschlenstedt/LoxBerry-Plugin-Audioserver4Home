@@ -2,7 +2,6 @@
 
 var as_internal = true;
 var as_interval = null;
-var gw_interval = null;
 var _autosave_enabled = false;
 var _autosave_pending = 0;
 
@@ -43,16 +42,6 @@ $(function() {
 		as_load_versions();
 	}
 
-	if (document.getElementById("gwservicestatus")) {
-		gw_interval = window.setInterval(function(){ gwservicestatus(); }, 5000);
-		gwservicestatus();
-	}
-
-	if (document.getElementById("gw_miniserver")) {
-		_autosave_pending++;
-		gw_load_miniservers();
-	}
-
 	if (document.getElementById("as_internal")) {
 		$("#as_internal").on("change", function() {
 			as_apply_ui_state($(this).is(":checked"));
@@ -63,15 +52,6 @@ $(function() {
 		});
 		$("#as_version").on("change", function() {
 			as_save_settings();
-		});
-	}
-
-	if (document.getElementById("gw_basetopic")) {
-		$("#gw_basetopic, #gw_polling, #gw_polling_slow").on("blur", function() {
-			gw_save_settings();
-		});
-		$("#gw_miniserver").on("change", function() {
-			gw_save_settings();
 		});
 	}
 
@@ -181,105 +161,6 @@ function asservicestop() {
 	});
 }
 
-// GATEWAY SERVICE STATE
-
-function gwservicestatus(update) {
-
-	if (update) {
-		$("#gwservicestatus").attr("style", "background:#dfdfdf").html("<TMPL_VAR "COMMON.HINT_UPDATING">");
-		$("#gwservicestatusicon").html("<img src='./images/unknown_20.png'>");
-	}
-
-	$.ajax( {
-			url:  '<TMPL_VAR AJAX_URL>',
-			type: 'POST',
-			data: {
-				action: 'gwservicestatus'
-			}
-		} )
-	.fail(function( data ) {
-		console.log( "GW Servicestatus Fail", data );
-		$("#gwservicestatus").attr("style", "background:#dfdfdf; color:red").html("<TMPL_VAR "COMMON.HINT_FAILED">");
-		$("#gwservicestatusicon").html("<img src='./images/unknown_20.png'>");
-	})
-	.done(function( data ) {
-		console.log( "GW Servicestatus Success", data );
-		if (data.pid) {
-			$("#gwservicestatus").attr("style", "background:#6dac20; color:black").html("<span class='small'>PID: " + data.pid + "</span>");
-			$("#gwservicestatusicon").html("<img src='./images/check_20.png'>");
-		} else {
-			$("#gwservicestatus").attr("style", "background:#FF6339; color:black").html("<TMPL_VAR "COMMON.HINT_STOPPED">");
-			$("#gwservicestatusicon").html("<img src='./images/error_20.png'>");
-		}
-	})
-	.always(function( data ) {
-		console.log( "GW Servicestatus Finished", data );
-	});
-}
-
-// GATEWAY SERVICE RESTART
-
-function gwservicerestart() {
-
-	clearInterval(gw_interval);
-	$("#gwservicestatus").attr("style", "color:blue").html("<TMPL_VAR "COMMON.HINT_EXECUTING">");
-	$("#gwservicestatusicon").html("<img src='./images/unknown_20.png'>");
-	$.ajax( {
-			url:  '<TMPL_VAR AJAX_URL>',
-			type: 'POST',
-			data: {
-				action: 'gwservicerestart'
-			}
-		} )
-	.fail(function( data ) {
-		console.log( "GW Servicerestart Fail", data );
-	})
-	.done(function( data ) {
-		console.log( "GW Servicerestart Success", data );
-		if (data == "0") {
-			gwservicestatus(1);
-			$("#gw_savinghint").html("");
-		} else {
-			$("#gwservicestatus").attr("style", "background:#dfdfdf; color:red").html("<TMPL_VAR "COMMON.HINT_FAILED">");
-		}
-		gw_interval = window.setInterval(function(){ gwservicestatus(); }, 5000);
-	})
-	.always(function( data ) {
-		console.log( "GW Servicerestart Finished", data );
-	});
-}
-
-// GATEWAY SERVICE STOP
-
-function gwservicestop() {
-
-	clearInterval(gw_interval);
-	$("#gwservicestatus").attr("style", "color:blue").html("<TMPL_VAR "COMMON.HINT_EXECUTING">");
-	$("#gwservicestatusicon").html("<img src='./images/unknown_20.png'>");
-	$.ajax( {
-			url:  '<TMPL_VAR AJAX_URL>',
-			type: 'POST',
-			data: {
-				action: 'gwservicestop'
-			}
-		} )
-	.fail(function( data ) {
-		console.log( "GW Servicestop Fail", data );
-	})
-	.done(function( data ) {
-		console.log( "GW Servicestop Success", data );
-		if (data == "0") {
-			gwservicestatus(1);
-		} else {
-			$("#gwservicestatus").attr("style", "background:#dfdfdf; color:red").html("<TMPL_VAR "COMMON.HINT_FAILED">");
-		}
-		gw_interval = window.setInterval(function(){ gwservicestatus(); }, 5000);
-	})
-	.always(function( data ) {
-		console.log( "GW Servicestop Finished", data );
-	});
-}
-
 // PLUGIN GET CONFIG
 
 function getconfig() {
@@ -306,12 +187,6 @@ function getconfig() {
 			$("#as_internal").prop("checked", checked);
 			as_apply_ui_state(checked);
 		}
-		// Populate gateway settings form if present
-		if (document.getElementById("gw_basetopic") && data.mqtt) {
-			$("#gw_basetopic").val(data.mqtt.basetopic || "");
-			$("#gw_polling").val(data.mqtt.polling || "");
-			$("#gw_polling_slow").val(data.mqtt.polling_slow || "");
-		}
 	})
 	.always(function( data ) {
 		console.log( "getconfig Finished" );
@@ -321,6 +196,60 @@ function getconfig() {
 }
 
 // AUDIOSERVER LOAD VERSIONS
+
+// Semver-ish comparator (ascending). Pre-releases rank below the matching
+// stable release (4.0.0 > 4.0.0-beta.13 > 4.0.0-beta.9). Numeric, so
+// beta.13 correctly sorts above beta.9.
+function as_vcmp(x, y) {
+	var xs = x.split('-'), ys = y.split('-');
+	var xb = xs[0].split('.').map(Number), yb = ys[0].split('.').map(Number);
+	var n = Math.max(xb.length, yb.length);
+	for (var i = 0; i < n; i++) {
+		var c = (xb[i] || 0) - (yb[i] || 0);
+		if (c) return c;
+	}
+	var xp = xs.slice(1).join('-'), yp = ys.slice(1).join('-');
+	if (!xp && yp) return 1;   // stable > prerelease
+	if (xp && !yp) return -1;
+	if (!xp && !yp) return 0;
+	var xname = xp.replace(/[\d.].*$/, ''), yname = yp.replace(/[\d.].*$/, '');
+	if (xname !== yname) return xname < yname ? -1 : 1;   // alpha < beta < rc
+	var xn = (xp.match(/\d+/g) || []).map(Number), yn = (yp.match(/\d+/g) || []).map(Number);
+	var m = Math.max(xn.length, yn.length);
+	for (var j = 0; j < m; j++) {
+		var d = (xn[j] || 0) - (yn[j] || 0);
+		if (d) return d;
+	}
+	return 0;
+}
+
+// Split tags into "Channels" (rolling pointers like beta-latest/dev) and
+// "Versionen" (concrete X.Y.Z tags), each sorted; empty groups are dropped.
+function as_group_versions(tags) {
+	var channels = [], versions = [];
+	(tags || []).forEach(function(t) {
+		if (/^\d+\./.test(t)) versions.push(t); else channels.push(t);
+	});
+	// Collapse alias pairs: a channel "X" and its "X-latest" point to the same
+	// rolling build, so keep only "X-latest" and drop the redundant bare "X".
+	var hasLatest = {};
+	channels.forEach(function(c) {
+		if (/-latest$/.test(c)) hasLatest[c.replace(/-latest$/, '')] = true;
+	});
+	channels = channels.filter(function(c) {
+		return /-latest$/.test(c) || !hasLatest[c];
+	});
+	var prio = { 'latest': 0, 'stable': 1, 'beta-latest': 2, 'beta': 3, 'testing-latest': 4, 'testing': 5, 'dev-latest': 6, 'dev': 7 };
+	channels.sort(function(a, b) {
+		var pa = (a in prio) ? prio[a] : 99, pb = (b in prio) ? prio[b] : 99;
+		return pa - pb || a.localeCompare(b);
+	});
+	versions.sort(function(a, b) { return as_vcmp(b, a); });   // newest first
+	var groups = [];
+	if (channels.length) groups.push({ label: 'Channels', tags: channels });
+	if (versions.length) groups.push({ label: 'Versionen', tags: versions });
+	return groups;
+}
 
 function as_load_versions() {
 
@@ -342,11 +271,14 @@ function as_load_versions() {
 		console.log("as_load_versions Done", data);
 		var $sel = $("#as_version");
 		$sel.empty();
-		if (data.tags && data.tags.length > 0) {
-			$.each(data.tags, function(i, tag) {
-				$sel.append($('<option>').val(tag).text(tag));
+		var groups = as_group_versions(data.tags);
+		$.each(groups, function(i, g) {
+			var $og = $('<optgroup>').attr('label', g.label);
+			$.each(g.tags, function(j, tag) {
+				$og.append($('<option>').val(tag).text(tag));
 			});
-		}
+			$sel.append($og);
+		});
 		if (data.current) {
 			if ($sel.find('option[value="' + data.current + '"]').length === 0) {
 				$sel.prepend($('<option>').val(data.current).text(data.current));
@@ -395,75 +327,6 @@ function as_save_settings() {
 	})
 	.always(function( data ) {
 		console.log( "as_save_settings Finished", data );
-	});
-
-}
-
-// GATEWAY LOAD MINISERVERS
-
-function gw_load_miniservers() {
-
-	$.ajax({
-		url:      '<TMPL_VAR AJAX_URL>',
-		type:     'POST',
-		data:     { action: 'getminiservers' },
-		dataType: 'json'
-	})
-	.fail(function() {
-		console.log("gw_load_miniservers Fail");
-		_autosave_init_done();
-	})
-	.done(function(data) {
-		console.log("gw_load_miniservers Done", data);
-		var $sel = $("#gw_miniserver");
-		$sel.empty();
-		$sel.append($('<option>').val(0).text('<TMPL_VAR "GATEWAY.HINT_AUTH_DISABLED">'));
-		if (data.miniservers && data.miniservers.length > 0) {
-			$.each(data.miniservers, function(i, ms) {
-				$sel.append($('<option>').val(ms.nr).text('#' + ms.nr + ' \u2013 ' + ms.name));
-			});
-		}
-		if (data.current !== undefined) {
-			$sel.val(data.current);
-		}
-		try { $sel.selectmenu('refresh', true); } catch(e) {}
-		_autosave_init_done();
-	});
-
-}
-
-// GATEWAY SAVE SETTINGS
-
-function gw_save_settings() {
-
-	if (!_autosave_enabled) return;
-	$("#gw_savinghint").attr("style", "color:blue").html("<TMPL_VAR "COMMON.HINT_SAVING">");
-	$.ajax({
-		url:      '<TMPL_VAR AJAX_URL>',
-		type:     'POST',
-		dataType: 'json',
-		data: {
-			action:       'savegwsettings',
-			basetopic:    $("#gw_basetopic").val(),
-			polling:      $("#gw_polling").val(),
-			polling_slow: $("#gw_polling_slow").val(),
-			miniserver:   $("#gw_miniserver").val()
-		}
-	})
-	.fail(function( data ) {
-		console.log( "gw_save_settings Fail", data );
-		$("#gw_savinghint").attr("style", "color:red").html("<TMPL_VAR "COMMON.HINT_SAVING_FAILED">");
-	})
-	.done(function( data ) {
-		console.log( "gw_save_settings Done", data );
-		if (data.error) {
-			$("#gw_savinghint").attr("style", "color:red").html("<TMPL_VAR "COMMON.HINT_SAVING_FAILED">" + " " + data.error);
-		} else {
-			$("#gw_savinghint").attr("style", "color:orange").html("Settings changed. Please restart service.");
-		}
-	})
-	.always(function( data ) {
-		console.log( "gw_save_settings Finished", data );
 	});
 
 }
@@ -616,9 +479,9 @@ function save_settings() {
 		})
 		.done(function (data) {
 			if (!data.zones) {
-				// SHM file is empty ({}) – gateway has gone offline
+				// ajax.cgi returns {} when the AudioServer did not answer
 				pm_render([]);
-				$('#pm-statusbar').text('<TMPL_VAR "PLAYERMANAGER.HINT_GATEWAY_OFFLINE">');
+				$('#pm-statusbar').text('<TMPL_VAR "PLAYERMANAGER.HINT_AS_OFFLINE">');
 				return;
 			}
 			pm_data = data;
@@ -689,8 +552,9 @@ function save_settings() {
 	}
 
 	function pm_update_card($card, zone) {
-		var playing = (zone.state === 'play');
-		var idle    = !zone.title && !zone.artist && !zone.station;
+		var playing = (zone.state === 'playing');
+		// track is null while a zone plays nothing - that is the idle signal
+		var idle    = !zone.track;
 
 		$card.toggleClass('pm-playing', playing);
 		$card.toggleClass('pm-idle',    idle);
@@ -698,7 +562,7 @@ function save_settings() {
 		// Cover art – only change src when URL actually changed
 		var $img = $card.find('.pm-card-art-img');
 		var $ph  = $card.find('.pm-card-art-ph');
-		var url  = zone.coverUrl || '';
+		var url  = pm_cover_url(zone);
 		if ($img.attr('src') !== url) {
 			if (url) {
 				$img.attr('src', url).show();
@@ -711,9 +575,9 @@ function save_settings() {
 
 		$card.find('.pm-card-zone').text(zone.name || ('<TMPL_VAR "PLAYERMANAGER.LABEL_ZONE"> ' + zone.id));
 		$card.find('.pm-card-title').text(
-			idle ? '<TMPL_VAR "PLAYERMANAGER.LABEL_IDLE">' : (zone.title || zone.station || '')
+			idle ? '<TMPL_VAR "PLAYERMANAGER.LABEL_IDLE">' : pm_title(zone)
 		);
-		$card.find('.pm-card-artist').text(zone.artist || '');
+		$card.find('.pm-card-artist').text((zone.track && zone.track.artist) || '');
 	}
 
 	/* ── Detail view ───────────────────────────────────────────── */
@@ -737,7 +601,7 @@ function save_settings() {
 	};
 
 	function pm_update_detail(zone) {
-		var url = zone.coverUrl || '';
+		var url = pm_cover_url(zone);
 
 		// Cover art
 		$('#pm-art-blur').css('background-image', url ? 'url(' + url + ')' : 'none');
@@ -753,18 +617,18 @@ function save_settings() {
 		$('#pm-d-zone-text').text('<TMPL_VAR "PLAYERMANAGER.LABEL_ZONE"> ' + zone.id + ' | ' + (zone.name || ''));
 
 		// Track info
-		$('#pm-d-title').text(zone.title || zone.station || '—');
-		$('#pm-d-artist').text(zone.artist || '');
-		$('#pm-d-album').text(zone.album || '');
+		var station = pm_station(zone);
+		$('#pm-d-title').text(pm_title(zone) || '—');
+		$('#pm-d-artist').text((zone.track && zone.track.artist) || '');
+		$('#pm-d-album').text((zone.track && zone.track.album) || '');
 		$('#pm-d-station').text(
-			(zone.station && zone.station !== zone.title) ? zone.station : ''
+			(station && station !== pm_title(zone)) ? station : ''
 		);
 
 		// Progress slider (JQM) – server values anchor the local tick
-		var sess     = (zone.tech && zone.tech.session) || {};
-		var elapsed  = parseFloat(sess.elapsed)  || 0;
-		var duration = parseFloat(sess.duration) || 0;
-		var playing  = (zone.state === 'play');
+		var elapsed  = parseFloat(zone.position) || 0;
+		var duration = parseFloat(zone.duration) || 0;
+		var playing  = (zone.state === 'playing');
 
 		$('#pm-progress-duration').text(duration > 0 ? pm_fmt_time(duration) : '--:--');
 		$('#pm-progress-slider').attr('max', duration > 0 ? Math.round(duration) : 100);
@@ -805,8 +669,36 @@ function save_settings() {
 
 	/* ── Helpers ───────────────────────────────────────────────── */
 
+	// The cover comes through the plugin's own proxy: it resizes via the
+	// AudioServer, falls back to a default image when a zone is idle, and keeps
+	// the AudioServer host out of the browser.
+	//
+	// cover.php lives in the public html directory (/plugins/<folder>/), while
+	// index.cgi is served from /admin/plugins/<folder>/ - so the path is derived
+	// from AJAX_URL instead of being relative to the current page.
+	var pm_urlbase = '<TMPL_VAR AJAX_URL>'.replace(/[^\/]*$/, '');
+
+	function pm_cover_url(zone) {
+		if (!zone || !zone.track || !zone.track.coverUrl) return '';
+		return pm_urlbase + 'cover.php?zone=' + encodeURIComponent(zone.id) +
+		       '&size=500&v=' + encodeURIComponent(zone.track.coverUrl);
+	}
+
+	// For radio the station sits in source.name while track.title carries the
+	// current ICY string; for everything else source.name is the service.
+	function pm_station(zone) {
+		if (!zone || !zone.source) return '';
+		return zone.source.kind === 'radio' ? (zone.source.name || '') : '';
+	}
+
+	function pm_title(zone) {
+		if (!zone) return '';
+		var t = zone.track ? (zone.track.title || '') : '';
+		return t || pm_station(zone) || '';
+	}
+
 	function pm_state_label(state, power) {
-		if (state === 'play')    return '<TMPL_VAR "PLAYERMANAGER.LABEL_PLAYING">';
+		if (state === 'playing') return '<TMPL_VAR "PLAYERMANAGER.LABEL_PLAYING">';
 		if (state === 'paused')  return '<TMPL_VAR "PLAYERMANAGER.LABEL_PAUSED">';
 		if (power === 'on')      return '<TMPL_VAR "PLAYERMANAGER.LABEL_READY">';
 		return '<TMPL_VAR "PLAYERMANAGER.LABEL_IDLE">';

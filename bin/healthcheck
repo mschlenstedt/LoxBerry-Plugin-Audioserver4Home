@@ -1,0 +1,238 @@
+#!/usr/bin/perl
+
+# healthcheck - LoxBerry Healthcheck for the AudioServer4Home plugin
+#
+# Called by $LBHOMEDIR/sbin/healthcheck.pl as:
+#   healthcheck title   -> description only
+#   healthcheck check   -> description, status and result
+#
+# The core folds a plugin into ONE row of the healthcheck table and reads only
+# desc, status and result (title/url/logfile are ignored for plugin checks).
+# Space in that row is tight, so every area contributes a single short clause
+# "Area: STATUS (detail)" and the worst status of all areas wins.
+#
+# Status codes: 3 = ERROR, 4 = WARNING, 5 = OK, 6 = INFO
+#
+# Runs daily by cron, on every reboot, and synchronously when someone opens the
+# Healthcheck page - the core calls us without a timeout of its own, so every
+# request here is kept on a short leash.
+
+use strict;
+use warnings;
+use LoxBerry::System;
+use LoxBerry::JSON;
+use JSON;
+use LWP::UserAgent;
+
+my $desc = 'Checks the AudioServer: container, API, health and zones';
+
+# Output is pure ASCII (\uXXXX escapes) - zone names may contain umlauts, and
+# the core re-decodes our stdout without knowing its encoding.
+my $out = JSON->new->ascii;
+
+my $action = defined $ARGV[0] ? $ARGV[0] : 'check';
+if ( $action ne 'check' ) {
+	print $out->encode( { desc => $desc } );
+	exit 0;
+}
+
+my @summary;    # one clause per area
+my $status;     # aggregated
+
+my $loglink = qq{ <a href="/admin/plugins/$lbpplugindir/index.cgi?form=logs">Log</a>.};
+
+#############################################################
+# Config
+#############################################################
+
+my $cfg;
+eval {
+	my $cfgobj = LoxBerry::JSON->new();
+	$cfg = $cfgobj->open( filename => "$lbpconfigdir/plugin.json", readonly => 1 );
+};
+if ( !$cfg ) {
+	finish( 3, 'Config: ERROR (plugin.json unreadable).' );
+}
+
+my $internal = $cfg->{loxaudioserver}->{internal} ? 1 : 0;
+my $host     = $cfg->{loxaudioserver}->{host} // 'localhost';
+my $port     = $cfg->{loxaudioserver}->{port} // 7090;
+my $baseurl  = "http://$host:$port";
+
+#############################################################
+# Area: Server (container / operating mode)
+#############################################################
+
+# A manual stop is a decision, not a fault - report it and check nothing else.
+if ( -e "$lbpconfigdir/as_stopped.cfg" ) {
+	finish( 6, 'Server: INFO (stopped manually).' );
+}
+
+if ($internal) {
+	my $container = container_name();
+	my $id        = '';
+	eval {
+		$id = `sudo docker ps --filter 'name=^/$container\$' --filter status=running --format '{{.ID}}' 2>/dev/null`;
+		chomp $id;
+	};
+	if ($id) {
+		area( 5, "Server: OK ($container)" );
+	}
+	else {
+		# Nothing below can succeed without a running container.
+		finish( 3, "Server: ERROR ($container down)." . $loglink );
+	}
+}
+else {
+	area( 6, "Server: INFO (external, $host)" );
+}
+
+#############################################################
+# Area: API
+#############################################################
+
+my $ua = LWP::UserAgent->new( timeout => 3 );
+
+my ( $zonedata, $apierr ) = get_json("$baseurl/api/v1/zones");
+if ($apierr) {
+	finish( 3, join( ' ', map { "$_." } @summary ) . " API: ERROR ($apierr)." . $loglink );
+}
+area( 5, 'API: OK' );
+
+#############################################################
+# Area: Health
+#############################################################
+
+my ( $health, $healtherr ) = get_json("$baseurl/api/v1/health");
+if ($healtherr) {
+	area( 4, "Health: WARNING ($healtherr)" );
+}
+else {
+	my $version = $health->{version} // '?';
+	my $phase   = $health->{phase}   // '?';
+	my $hstatus = $health->{status}  // '';
+
+	my @failed = map { $_->{name} }
+		grep { ( $_->{status} // 'ok' ) ne 'ok' } @{ $health->{checks} // [] };
+	my $failed = @failed ? ': ' . join( ', ', @failed ) : '';
+
+	if ( $phase ne 'ready' ) {
+		# beta.18 can stay on phase "starting" indefinitely while serving zones
+		# normally. As long as zones answer, that is not worth an ERROR.
+		area( 4, "Health: WARNING (phase $phase)" );
+	}
+	elsif ( $hstatus eq 'ok' ) {
+		area( 5, "Health: OK ($version)" );
+	}
+	elsif ( $hstatus eq 'degraded' ) {
+		# Upstream is explicit that degraded must not trigger a restart.
+		area( 4, "Health: WARNING (degraded$failed)" );
+	}
+	else {
+		area( 3, "Health: ERROR ($hstatus$failed)" );
+	}
+}
+
+#############################################################
+# Area: Zones
+#############################################################
+
+my @zones = @{ $zonedata->{zones} // [] };
+
+if ( !@zones ) {
+	area( 4, 'Zones: WARNING (none configured)' );
+}
+else {
+	my $playing = grep { ( $_->{state} // '' ) eq 'playing' } @zones;
+
+	my @offline = map { $_->{name} // $_->{id} }
+		grep {
+		$_->{output} && $_->{output}->{device}
+			&& !$_->{output}->{device}->{connected}
+		} @zones;
+
+	my @failed = map { ( $_->{name} // $_->{id} ) . ': ' . $_->{error} }
+		grep { $_->{error} } @zones;
+
+	if (@failed) {
+		area( 4, 'Zones: WARNING (' . $failed[0] . ')' );
+	}
+	elsif ( @offline > 2 ) {
+		area( 4, 'Zones: WARNING (' . scalar(@offline) . ' players offline)' );
+	}
+	elsif (@offline) {
+		area( 4, 'Zones: WARNING (' . join( ', ', @offline ) . ' offline)' );
+	}
+	else {
+		area( 5, "Zones: OK (" . scalar(@zones) . ", $playing playing)" );
+	}
+}
+
+#############################################################
+# Area: Watchdog (only reported when it actually counted failures)
+#############################################################
+
+my $fails = LoxBerry::System::read_file('/dev/shm/a4h-as-watchdog-fails.dat');
+if ($fails) {
+	chomp $fails;
+	area( 4, "Watchdog: WARNING ($fails fails)." . $loglink ) if ( $fails + 0 ) > 0;
+}
+
+finish( $status, join( ' ', map { "$_." } @summary ) );
+
+#############################################################
+# Helpers
+#############################################################
+
+# Container name from docker-compose.yml - kept in sync with as_watchdog.pl,
+# so a rename upstream only has to be applied to the compose file.
+sub container_name {
+	my $compose = LoxBerry::System::read_file("$lbpconfigdir/docker-compose.yml") // '';
+	my ($name) = $compose =~ m{^\s*container_name:\s*(\S+)}m;
+	return ( $name ? $name : 'sonn-core' );
+}
+
+# Returns (data, undef) on success, (undef, short reason) on failure. The reason
+# is meant to be printed as-is, so it stays a handful of characters.
+sub get_json {
+	my ($url) = @_;
+	my $resp = eval { $ua->get($url) };
+	return ( undef, 'no answer' ) if !$resp;
+
+	# LWP answers a refused connection or a DNS failure with a locally built
+	# 500 response - reporting that as "HTTP 500" would send people looking for
+	# a server error that never happened.
+	return ( undef, 'no answer' )
+		if ( $resp->header('Client-Warning') // '' ) eq 'Internal response';
+
+	if ( !$resp->is_success ) {
+		# /health and /ready answer 503 with a valid body - that is data, not a
+		# transport error, so only a missing body counts as failure here.
+		my $data = eval { decode_json( $resp->decoded_content ) };
+		return ( $data, undef ) if $data;
+		return ( undef, 'HTTP ' . $resp->code );
+	}
+	my $data = eval { decode_json( $resp->decoded_content ) };
+	return ( undef, 'invalid JSON' ) if $@ || !$data;
+	return ( $data, undef );
+}
+
+# Adds one clause and keeps the worst status seen so far (lower = more severe,
+# matching the core's own setstatus()).
+sub area {
+	my ( $new, $clause ) = @_;
+	push @summary, $clause;
+	$status = $new if ( !$status || $new < $status );
+	return;
+}
+
+sub finish {
+	my ( $st, $result ) = @_;
+	print $out->encode(
+		{   desc   => $desc,
+			status => "$st",
+			result => $result,
+		}
+	);
+	exit 0;
+}

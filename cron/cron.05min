@@ -1,3 +1,2 @@
 #!/bin/bash
 REPLACELBPBINDIR/as_watchdog.pl --action=check --verbose=0
-REPLACELBPBINDIR/gw_watchdog.pl --action=check --verbose=0

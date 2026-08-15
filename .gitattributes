@@ -1,0 +1,16 @@
+# Let Git auto-normalize text files (stored as LF in the repo).
+* text=auto
+
+# Force LF for everything that is executed or parsed on the LoxBerry (Linux)
+# side. CRLF would break the shebang under Apache (#!/usr/bin/perl + CR => 500)
+# and can break shell / sudoers parsing.
+*.pl   text eol=lf
+*.pm   text eol=lf
+*.cgi  text eol=lf
+*.sh   text eol=lf
+bin/healthcheck     text eol=lf
+cron/cron.05min     text eol=lf
+daemon/daemon       text eol=lf
+dpkg/apt            text eol=lf
+uninstall/uninstall text eol=lf
+sudoers/sudoers     text eol=lf

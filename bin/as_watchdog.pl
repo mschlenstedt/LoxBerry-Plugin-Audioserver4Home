@@ -34,7 +34,7 @@ if ($verbose) {
         $log->loglevel(7);
 }
 
-LOGSTART "Starting Lox-Audioserver Watchdog";
+LOGSTART "Starting AudioServer Watchdog";
 
 # Lock
 my $status = LoxBerry::System::lock(lockfile => 'as-watchdog', wait => 10);
@@ -98,7 +98,7 @@ sub start
 	my $cfgobj2 = LoxBerry::JSON->new();
 	my $cfg2 = $cfgobj2->open(filename => "$lbpconfigdir/plugin.json", readonly => 1);
 	if ($cfg2 && !$cfg2->{loxaudioserver}{internal}) {
-		LOGINF "Lox-Audioserver ist als extern konfiguriert – kein Start erforderlich.";
+		LOGINF "AudioServer ist als extern konfiguriert – kein Start erforderlich.";
 		return(0);
 	}
 
@@ -107,38 +107,54 @@ sub start
 		unlink("$lbpconfigdir/as_stopped.cfg");
 	}
 
-	my $count = `sudo docker ps | grep -c Up.*lox-audioserver`;
-	chomp ($count);
-	if ($count > "0") {
-		LOGCRIT "Lox-Audioserver already running. Please stop it before starting again. Exiting.";
+	if ( &container_id() ) {
+		LOGCRIT "AudioServer already running. Please stop it before starting again. Exiting.";
 		exit (1);
 	}
 
-	LOGINF "Starting Lox-Audioserver...";
+	LOGINF "Starting AudioServer...";
 
-	my $cfgfile = $lbpplugindir."/plugin.json";
-	my $jsonobj = LoxBerry::JSON->new();
-	$cfg = $jsonobj->open(filename => $cfgfile);
-	my $release = $cfg->{lox-audioserver}->{release};
-	if ( !$release) {
-		$release = "latest";
-	}
-
-	my $output = `sudo docker compose -f $lbpconfigdir/docker-compose.yml up -d 2>&1`;
+	# Pull first: "up -d" reuses a locally present image, so rolling channel tags
+	# (beta-latest, dev-latest, ...) would never receive an update without this.
+	my $output = `sudo docker compose -f $lbpconfigdir/docker-compose.yml pull 2>&1`;
+	$output .= `sudo docker compose -f $lbpconfigdir/docker-compose.yml up -d 2>&1`;
 	chomp ($output);
 
-	my $count = `sudo docker ps | grep -c Up.*lox-audioserver`;
-	chomp ($count);
-	if ($count eq "0") {
-		LOGCRIT "Could not start Lox-Audioserver - Error: $output";
+	my $id = &container_id();
+	if (!$id) {
+		LOGCRIT "Could not start AudioServer - Error: $output";
 		exit (1)
 	} else {
-		my $id = `sudo docker ps | grep Up.*lox-audioserver | awk '{ print \$1 }'`;
-		chomp ($id);
-		LOGOK "Lox-Audioserver started successfully. Container ID: $id";
+		LOGOK "AudioServer started successfully. Container ID: $id";
 	}
 
 	return (0);
+
+}
+
+##
+## Container name from docker-compose.yml, and the id of that container.
+## Filtering by name is exact - grepping "docker ps" also matched the image
+## column and broke as soon as the upstream project was renamed.
+##
+sub container_name
+{
+
+	my $compose = LoxBerry::System::read_file("$lbpconfigdir/docker-compose.yml") // '';
+	my ($container) = $compose =~ m{^\s*container_name:\s*(\S+)}m;
+
+	return ($container ? $container : "sonn-core");
+
+}
+
+sub container_id
+{
+
+	my $name = &container_name();
+	my $id = `sudo docker ps --filter 'name=^/$name\$' --filter status=running --format '{{.ID}}' 2>/dev/null`;
+	chomp ($id);
+
+	return ($id);
 
 }
 
@@ -147,18 +163,15 @@ sub stop
 
 	$response = LoxBerry::System::write_file("$lbpconfigdir/as_stopped.cfg", "1");
 
-	LOGINF "Stopping Lox-Audioserver...";
+	LOGINF "Stopping AudioServer...";
 	my $output = `sudo docker compose -f $lbpconfigdir/docker-compose.yml down 2>&1`;
 	chomp ($output);
 
-	my $count = `sudo docker ps | grep -c lox-audioserver`;
-	chomp ($count);
-	if ($count eq "0") {
-		LOGOK "Lox-Audioserver stopped successfully.";
+	my $id = &container_id();
+	if (!$id) {
+		LOGOK "AudioServer stopped successfully.";
 	} else {
-		my $id = `sudo docker ps | grep lox-audioserver | awk '{ print \$1 }'`;
-		chomp ($id);
-		LOGCRIT "Could not stop Lox-Audioserver - Error: $output. Still Running ID: $id";
+		LOGCRIT "Could not stop AudioServer - Error: $output. Still Running ID: $id";
 		exit (1)
 	}
 
@@ -170,7 +183,7 @@ sub restart
 {
 
 	$log->default;
-	LOGINF "Restarting Lox-Audioserver...";
+	LOGINF "Restarting AudioServer...";
 	&stop();
 	&start();
 
@@ -181,24 +194,23 @@ sub restart
 sub check
 {
 
-	LOGINF "Checking Status of Lox-Audioserver...";
+	LOGINF "Checking Status of AudioServer...";
 
 	my $cfgobj2 = LoxBerry::JSON->new();
 	my $cfg2 = $cfgobj2->open(filename => "$lbpconfigdir/plugin.json", readonly => 1);
 	if ($cfg2 && !$cfg2->{loxaudioserver}{internal}) {
-		LOGINF "Lox-Audioserver ist als extern konfiguriert – kein Check erforderlich.";
+		LOGINF "AudioServer ist als extern konfiguriert – kein Check erforderlich.";
 		return(0);
 	}
 
 	if (-e  "$lbpconfigdir/as_stopped.cfg") {
-		LOGOK "Lox-Audioserver was stopped manually. Nothing to do.";
+		LOGOK "AudioServer was stopped manually. Nothing to do.";
 		return(0);
 	}
 
-	my $count = `sudo docker ps | grep -c Up.*lox-audioserver`;
-	chomp ($count);
-	if ($count eq "0") {
-		LOGERR "Lox-Audioserver seems not to be running.";
+	my $id = &container_id();
+	if (!$id) {
+		LOGERR "AudioServer seems not to be running.";
 		my $fails = LoxBerry::System::read_file("/dev/shm/a4h-as-watchdog-fails.dat");
 		chomp ($fails);
 		$fails++;
@@ -209,9 +221,7 @@ sub check
 			&restart();
 		}
 	} else {
-		my $id = `sudo docker ps | grep Up.*lox-audioserver | awk '{ print \$1 }'`;
-		chomp ($id);
-		LOGOK "Lox-Audioserver is running. Fine. ID: $id";
+		LOGOK "AudioServer is running. Fine. ID: $id";
 		my $response = LoxBerry::System::write_file("/dev/shm/a4h-as-watchdog-fails.dat", "0");
 	}
 
