@@ -53,6 +53,14 @@ my $cfgfile = "$lbpconfigdir/plugin.json";
 my $jsonobj = LoxBerry::JSON->new();
 my $cfg = $jsonobj->open(filename => $cfgfile, readonly => 1);
 
+# TTS PUBLIC-PROBE 4XX + RELEASE-TAG CFG - 2026-08-14
+# Handle the Text2Speech navigation locally first. This makes it possible
+# to verify the remote plugin before redirecting the browser.
+if (defined $q->{action} && $q->{action} eq "open_text2speech") {
+	&open_text2speech_target();
+	exit;
+}
+
 # Default is loxbuddy_settings form
 $q->{form} = "playermanager" if !$q->{form};
 
@@ -144,32 +152,97 @@ sub form_logs
 ###################
 
 ##########################################################################
-# Check if TTS Plugin is installed
+# Get Text2Speech Web UI URL from AudioServer configuration
 ##########################################################################
 
-sub is_tts_plugin_installed
+sub get_text2speech_host
 {
-	my ($plugin_id) = @_;
+	my $json = LoxBerry::JSON->new();
+	my $config = $json->open(
+		filename => "$lbpdatadir/data/config.json",
+		readonly => 1
+	);
+	return undef if !$config;
 
-	return 0 if !$plugin_id;
+	my $provider = $config->{content}->{tts}->{provider};
+	return undef if !$provider;
+	return undef if ($provider->{type} // '') ne 'loxberry-tts';
+	return undef if !$provider->{enabled};
+	return undef if !defined $provider->{host} || $provider->{host} eq '';
+	return $provider->{host};
+}
 
-	my @plugins = LoxBerry::System::get_plugins();
-	return 0 if !@plugins;
+##########################################################################
+# Probe whether Text2Speech is installed on the configured remote LoxBerry
+##########################################################################
 
-	foreach my $plugin (@plugins) {
-		next if !$plugin;
+sub probe_text2speech_installation
+{
+	my ($url) = @_;
+	my $status = `curl -k -s -o /dev/null -w '%{http_code}' --connect-timeout 4 --max-time 8 "$url"`;
+	return -1 if !$status || $status eq '000';
+	return 0  if $status >= 400;
+	return 1;
+}
 
-		if (defined $plugin->{PLUGINDB_FOLDER} && $plugin->{PLUGINDB_FOLDER} eq $plugin_id) {
-			return 1;
-		}
+##########################################################################
+# Read current Text2Speech ARCHIVEURL from release.cfg
+##########################################################################
 
-		if (defined $plugin->{PLUGINDB_NAME} && $plugin->{PLUGINDB_NAME} eq $plugin_id) {
-			return 1;
-		}
+sub get_text2speech_release_archive_url
+{
+	my $api = "https://api.github.com/repos/Liver64/LoxBerry-TTS/releases/latest";
+
+	my $release = `curl -k -sfL --max-time 10 -H 'Accept: application/vnd.github+json' -H 'User-Agent: LoxBerry-AudioServer4Home' "$api" 2>/dev/null`;
+	return undef if !$release;
+
+	my ($tag) = $release =~ /"tag_name"\s*:\s*"([^"]+)"/;
+	return undef if !$tag;
+
+	# Read release.cfg from the published release tag, never from master.
+	my $release_cfg = `curl -k -sfL --max-time 10 "https://raw.githubusercontent.com/Liver64/LoxBerry-TTS/$tag/release.cfg" 2>/dev/null`;
+	return undef if !$release_cfg;
+
+	my ($archive_url) = $release_cfg =~ /^ARCHIVEURL=(.+)$/m;
+	return undef if !$archive_url;
+
+	$archive_url =~ s/\r$//;
+	return $archive_url;
+}
+
+##########################################################################
+# Open Text2Speech, or installer with prefilled release URL if it is missing
+##########################################################################
+
+sub open_text2speech_target
+{
+	my $host = &get_text2speech_host();
+
+	if (!$host) {
+		print $cgi->redirect('index.cgi');
+		exit;
 	}
 
-	return 0;
+	my $base_url   = "http://$host";
+	my $plugin_url = "$base_url/admin/plugins/text2speech/";
+	my $probe_url  = "$base_url/plugins/text2speech/index.php";
+
+	my $installed = &probe_text2speech_installation($probe_url);
+	if ($installed == 0) {
+		my $archive_url = &get_text2speech_release_archive_url();
+		if ($archive_url) {
+			my $installer_url =
+				"$base_url/admin/system/plugininstall.cgi?url=$archive_url";
+			print $cgi->redirect($installer_url);
+			exit;
+		}
+		print $cgi->redirect("$base_url/admin/system/plugininstall.cgi");
+		exit;
+	}
+	print $cgi->redirect($plugin_url);
+	exit;
 }
+
 
 ##########################################################################
 # Print Form
@@ -222,12 +295,13 @@ sub preparetemplate
 	$navbar{60}{URL} = "$asurl";
 	$navbar{60}{target} = '_blank';
 
-	# Show Text2Speech navigation entry only if the Text2Speech plugin is installed
-	if (&is_tts_plugin_installed("text2speech")) {
+	# Show Text2Speech navigation entry only for an enabled external LoxBerry TTS provider.
+	my $text2speech_host = &get_text2speech_host();
+	if ($text2speech_host) {
 		my $text2speech_label = $L{'COMMON.LABEL_TEXT2SPEECH'} || "Text2Speech";
 
-		$navbar{70}{Name} = "$text2speech_label";
-		$navbar{70}{URL} = "http://loxberry-dev/admin/plugins/text2speech/";
+		$navbar{70}{Name}   = "$text2speech_label";
+		$navbar{70}{URL}    = 'index.cgi?action=open_text2speech';
 		$navbar{70}{target} = "_blank";
 	}
 	
