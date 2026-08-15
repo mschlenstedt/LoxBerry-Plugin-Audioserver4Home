@@ -3,7 +3,7 @@
 # purge_mqtt_topics.pl - clear the retained topics of the removed MQTT gateway
 #
 # Up to v3.1.0 the plugin published everything retained below its own base topic
-# (default "audioserver4home"). Since v3.2.0 the AudioServer publishes to the
+# (default "audioserver4home"). Since v3.3.0 the AudioServer publishes to the
 # broker itself and the gateway is gone - but the old retained values stay in
 # the broker forever, so the Finder and the Miniserver keep serving numbers that
 # nothing refreshes any more.

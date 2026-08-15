@@ -52,10 +52,10 @@ sudo docker compose -f "$CONFIGDIR/docker-compose.yml" down 2>/dev/null
 sudo docker rm -f sonn-core lox-audioserver > /dev/null 2>&1
 echo "<OK> AudioServer stopped."
 
-# The plugin's own MQTT gateway was removed in v3.2.0 - the AudioServer
+# The plugin's own MQTT gateway was removed in v3.3.0 - the AudioServer
 # publishes to the broker itself now. Kill an instance left over from an older
 # version, otherwise it keeps running and republishing stale topics.
-echo "<INFO> Stopping the old MQTT Gateway (removed in v3.2.0)..."
+echo "<INFO> Stopping the old MQTT Gateway (removed in v3.3.0)..."
 pkill -f "loxaudioserver_mqtt.pl" 2>/dev/null
 pkill -f "gw_watchdog.pl" 2>/dev/null
 rm -f "$CONFIGDIR/gw_stopped.cfg" "$CONFIGDIR/gw_stopped_changed.cfg"
