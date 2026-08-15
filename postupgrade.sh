@@ -51,7 +51,7 @@ if [ -f "$COMPOSE" ] && grep -q "ghcr.io/lox-audioserver/lox-audioserver" "$COMP
 	fi
 fi
 
-# The plugin's own MQTT gateway was removed in v3.2.0 - the AudioServer
+# The plugin's own MQTT gateway was removed in v3.3.0 - the AudioServer
 # publishes to the broker itself now. Its retained topics would otherwise stay
 # in the broker forever, serving values that nothing refreshes. This reads the
 # old base topic from the config restored above, so it has to run before the
