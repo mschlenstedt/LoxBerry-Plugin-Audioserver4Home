@@ -281,10 +281,6 @@ sub preparetemplate
 
 		$navbar{70}{Name}   = "$text2speech_label";
 		$navbar{70}{URL}    = 'index.cgi?action=open_text2speech';
-
-		$navbar{70}{Name} = "$text2speech_label";
-		$navbar{70}{URL} = "http://" . LoxBerry::System::get_localip() . ":" . LoxBerry::System::lbwebserverport() . "/admin/plugins/text2speech/";
-
 		$navbar{70}{target} = "_blank";
 	}
 	
