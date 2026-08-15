@@ -25,6 +25,10 @@ pluginname=$3
 CONFIGDIR="$ARGV5/config/plugins/$ARGV3"
 BINDIR="$ARGV5/bin/plugins/$ARGV3"
 
+# The LoxBerry core only picks up the healthcheck if the file is executable -
+# make sure of it, regardless of how the archive was packed.
+chmod +x "$BINDIR/healthcheck" 2>/dev/null
+
 # Remove leftover containers before starting again. This has to cover both the
 # current name (sonn-core) and the one used before the upstream project was
 # renamed (lox-audioserver): an upgrade can start from either state, and a

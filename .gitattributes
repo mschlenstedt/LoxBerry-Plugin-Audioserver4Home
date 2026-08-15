@@ -8,6 +8,8 @@
 *.pm   text eol=lf
 *.cgi  text eol=lf
 *.sh   text eol=lf
+bin/healthcheck     text eol=lf
+cron/cron.05min     text eol=lf
 daemon/daemon       text eol=lf
 dpkg/apt            text eol=lf
 uninstall/uninstall text eol=lf
