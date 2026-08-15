@@ -697,13 +697,6 @@ function save_settings() {
 		return t || pm_station(zone) || '';
 	}
 
-	function pm_state_label(state, power) {
-		if (state === 'playing') return '<TMPL_VAR "PLAYERMANAGER.LABEL_PLAYING">';
-		if (state === 'paused')  return '<TMPL_VAR "PLAYERMANAGER.LABEL_PAUSED">';
-		if (power === 'on')      return '<TMPL_VAR "PLAYERMANAGER.LABEL_READY">';
-		return '<TMPL_VAR "PLAYERMANAGER.LABEL_IDLE">';
-	}
-
 	function pm_fmt_time(sec) {
 		if (!sec && sec !== 0) return '--:--';
 		sec = Math.floor(sec);
